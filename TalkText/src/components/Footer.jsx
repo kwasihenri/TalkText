@@ -15,6 +15,9 @@ export default function Footer() {
           <Link to="/text-to-speech" className="footer-link">
             <i className="fa-solid fa-volume-high"></i> TTS Synthesizer
           </Link>
+          <Link to="/exam-recorder" className="footer-link">
+            <i className="fa-solid fa-graduation-cap"></i> Exam Recorder
+          </Link>
           <Link to="/settings" className="footer-link">
             <i className="fa-solid fa-gear"></i> Voice Rules
           </Link>

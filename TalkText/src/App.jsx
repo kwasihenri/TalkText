@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import { ToastProvider } from "./components/Toast";
 import SpeechToTextPage from "./pages/SpeechToTextPage";
 import TextToSpeechPage from "./pages/TextToSpeechPage";
+import ExamRecorderPage from "./pages/ExamRecorderPage";
 import SettingsPage from "./pages/SettingsPage";
 import { storage } from "./services/storage";
 
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/" element={<RootRedirect />} />
               <Route path="/speech-to-text" element={<SpeechToTextPage />} />
               <Route path="/text-to-speech" element={<TextToSpeechPage />} />
+              <Route path="/exam-recorder" element={<ExamRecorderPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/speech-to-text" replace />} />
             </Routes>

@@ -59,6 +59,13 @@ export default function Header() {
               <span>Text to Speech</span>
             </NavLink>
             <NavLink
+              to="/exam-recorder"
+              className={({ isActive }) => `nav-tab-btn ${isActive ? "active" : ""}`}
+            >
+              <i className="fa-solid fa-graduation-cap"></i>
+              <span>Exam Recorder</span>
+            </NavLink>
+            <NavLink
               to="/settings"
               className={({ isActive }) => `nav-tab-btn ${isActive ? "active" : ""}`}
             >

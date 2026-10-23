@@ -163,13 +163,91 @@ const DEFAULT_PRESETS = [
   }
 ];
 
+const DEFAULT_EXAM_FIELDS = [
+  {
+    id: "studentId",
+    key: "studentId",
+    label: "Student ID",
+    voicePrompt: "Please say the student ID number",
+    prefix: "423123",
+    padDigits: 4,
+    hasDefault: false,
+    defaultValue: "",
+    type: "id",
+    required: true
+  },
+  {
+    id: "programme",
+    key: "programme",
+    label: "Programme",
+    voicePrompt: "Say the programme name or say default",
+    prefix: "",
+    padDigits: 0,
+    hasDefault: true,
+    defaultValue: "BSc Computer Science",
+    type: "text",
+    required: false
+  },
+  {
+    id: "paperTitle",
+    key: "paperTitle",
+    label: "Paper Title",
+    voicePrompt: "Say the paper title or say default",
+    prefix: "",
+    padDigits: 0,
+    hasDefault: true,
+    defaultValue: "Data Structures & Algorithms",
+    type: "text",
+    required: false
+  },
+  {
+    id: "groupName",
+    key: "groupName",
+    label: "Group Name",
+    voicePrompt: "Say group name or say default",
+    prefix: "",
+    padDigits: 0,
+    hasDefault: true,
+    defaultValue: "Group A",
+    type: "text",
+    required: false
+  },
+  {
+    id: "session",
+    key: "session",
+    label: "Session",
+    voicePrompt: "Say the session or say default",
+    prefix: "",
+    padDigits: 0,
+    hasDefault: true,
+    defaultValue: "Morning Session",
+    type: "text",
+    required: false
+  },
+  {
+    id: "marks",
+    key: "marks",
+    label: "Marks Scored",
+    voicePrompt: "Say the marks scored",
+    prefix: "",
+    padDigits: 0,
+    hasDefault: false,
+    defaultValue: "",
+    type: "number",
+    required: true
+  }
+];
+
 const STORAGE_KEYS = {
   RULES: "talktext_rules_v1",
   TRANSCRIPTS: "talktext_transcripts_v1",
   TTS_PRESETS: "talktext_tts_presets_v1",
   TTS_SAVED: "talktext_tts_saved_v1",
   LAST_ROUTE: "talktext_last_route_v1",
-  SETTINGS: "talktext_settings_v1"
+  SETTINGS: "talktext_settings_v1",
+  EXAM_FIELDS: "talktext_exam_fields_v1",
+  EXAM_RECORDS: "talktext_exam_records_v1",
+  EXAM_SETTINGS: "talktext_exam_settings_v1"
 };
 
 export const storage = {
@@ -288,6 +366,82 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.LAST_ROUTE, route);
     } catch (e) {
       console.error("[TalkText][storage.js] Error writing last route:", e);
+    }
+  },
+
+  getExamFields: () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.EXAM_FIELDS);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error("[TalkText][storage.js] Error reading exam fields:", e);
+    }
+    return DEFAULT_EXAM_FIELDS;
+  },
+
+  saveExamFields: (fields) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.EXAM_FIELDS, JSON.stringify(fields));
+      return true;
+    } catch (e) {
+      console.error("[TalkText][storage.js] Error saving exam fields:", e);
+      return false;
+    }
+  },
+
+  resetExamFields: () => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.EXAM_FIELDS, JSON.stringify(DEFAULT_EXAM_FIELDS));
+      return DEFAULT_EXAM_FIELDS;
+    } catch (e) {
+      console.error("[TalkText][storage.js] Error resetting exam fields:", e);
+      return DEFAULT_EXAM_FIELDS;
+    }
+  },
+
+  getExamRecords: () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.EXAM_RECORDS);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error("[TalkText][storage.js] Error reading exam records:", e);
+      return [];
+    }
+  },
+
+  saveExamRecords: (records) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.EXAM_RECORDS, JSON.stringify(records));
+      return true;
+    } catch (e) {
+      console.error("[TalkText][storage.js] Error saving exam records:", e);
+      return false;
+    }
+  },
+
+  getExamSettings: () => {
+    const fallback = {
+      autoRepeatSummary: true,
+      autoProceedNext: true,
+      speechRate: 1.05,
+      voiceURI: ""
+    };
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.EXAM_SETTINGS);
+      return stored ? { ...fallback, ...JSON.parse(stored) } : fallback;
+    } catch (e) {
+      console.error("[TalkText][storage.js] Error reading exam settings:", e);
+      return fallback;
+    }
+  },
+
+  saveExamSettings: (settings) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.EXAM_SETTINGS, JSON.stringify(settings));
+      return true;
+    } catch (e) {
+      console.error("[TalkText][storage.js] Error saving exam settings:", e);
+      return false;
     }
   }
 };
