@@ -79,6 +79,28 @@ npm run build
 
 ---
 
+## 🤝 Contributing
+
+Contributions, feedback, and feature suggestions are warmly welcomed!
+
+1. **Found a bug or have an idea?** Open an issue or suggestion on the [Issues page](https://github.com/kwasihenri/TalkText/issues).
+2. **Submit improvements:**
+   - Fork the repository.
+   - Create a feature branch: `git checkout -b feature/your-feature-name`
+   - Commit your changes: `git commit -m "feat: add your feature"`
+   - Push to your branch: `git push origin feature/your-feature-name`
+   - Open a Pull Request with a short summary of what you added or fixed.
+
+---
+
+## 👤 Author
+
+Developed by **[kwasihenri](https://github.com/kwasihenri)**.
+
+If you enjoy using TalkText or find it useful in your workflow, feel free to give the project a ⭐ on GitHub!
+
+---
+
 ## 📄 License
 
-Open-source under the [MIT License](LICENSE).
+Distributed under the [MIT License](LICENSE). Copyright © 2026 kwasihenri.
