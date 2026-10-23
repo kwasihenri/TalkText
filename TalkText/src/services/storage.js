@@ -196,7 +196,7 @@ const DEFAULT_EXAM_FIELDS = [
     prefix: "",
     padDigits: 0,
     hasDefault: true,
-    defaultValue: "Data Structures & Algorithms",
+    defaultValue: "Biometric Systems",
     type: "text",
     required: false
   },
@@ -372,7 +372,19 @@ export const storage = {
   getExamFields: () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.EXAM_FIELDS);
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item) => {
+            const defItem = DEFAULT_EXAM_FIELDS.find((d) => d.id === item.id);
+            if (!defItem) return item;
+            if (item.defaultValue === "Data Structures & Algorithms") {
+              return { ...item, defaultValue: defItem.defaultValue };
+            }
+            return { ...defItem, ...item };
+          });
+        }
+      }
     } catch (e) {
       console.error("[TalkText][storage.js] Error reading exam fields:", e);
     }

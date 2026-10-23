@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { storage } from "../services/storage";
-import { parseExamInput } from "../services/examInputParser";
+import { parseExamInput, parseRapidStreamTokens } from "../services/examInputParser";
 import { useToast } from "../context/useToast";
 import Modal from "../components/Modal";
 
@@ -259,47 +259,32 @@ export default function ExamRecorderPage() {
       return;
     }
 
-    const chunks = rawSpoken.split(/,|\s{2,}/).map((s) => s.trim()).filter(Boolean);
+    const { action, updates, newIndex } = parseRapidStreamTokens(
+      rawSpoken,
+      fieldsRef.current,
+      currentFieldIdxRef.current
+    );
 
-    let draft = { ...currentDraftRef.current };
-    let idx = currentFieldIdxRef.current;
-    const currentFields = fieldsRef.current;
-
-    for (const chunk of chunks) {
-      if (idx >= currentFields.length) break;
-      const field = currentFields[idx];
-      const { value, action } = parseExamInput(chunk, field);
-
-      if (action === "stop") {
-        stopSession();
-        toast.info("Stream paused.");
-        return;
-      }
-      if (action === "undo") {
-        if (idx > 0) {
-          idx--;
-          delete draft[currentFields[idx].key];
-        }
-        continue;
-      }
-      if (action === "skip") {
-        draft[field.key] = field.defaultValue || "";
-        idx++;
-        continue;
-      }
-
-      draft[field.key] = value || (field.hasDefault ? field.defaultValue : "");
-      idx++;
+    if (action === "stop") {
+      stopSession();
+      toast.info("Stream paused.");
+      return;
     }
 
-    currentDraftRef.current = draft;
-    setCurrentDraft({ ...draft });
+    const updatedDraft = {
+      ...currentDraftRef.current,
+      ...updates
+    };
 
-    if (idx >= currentFields.length) {
-      commitStudentRecord(draft, true);
+    currentDraftRef.current = updatedDraft;
+    setCurrentDraft({ ...updatedDraft });
+
+    const currentFields = fieldsRef.current;
+    if (newIndex >= currentFields.length) {
+      commitStudentRecord(updatedDraft, true);
     } else {
-      currentFieldIdxRef.current = idx;
-      setCurrentFieldIdx(idx);
+      currentFieldIdxRef.current = newIndex;
+      setCurrentFieldIdx(newIndex);
     }
   }
 
@@ -1175,13 +1160,14 @@ export default function ExamRecorderPage() {
         <form onSubmit={handleSaveRecordEdit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {fields.map((f) => {
             const isGroup = f.key?.toLowerCase().includes("group") || f.label?.toLowerCase().includes("group");
+            const isSession = f.key?.toLowerCase().includes("session") || f.label?.toLowerCase().includes("session");
             return (
               <div key={f.id} className="form-group">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.4rem" }}>
                   <label className="label">{f.label}</label>
-                  {isGroup && (
-                    <div style={{ display: "flex", gap: "0.3rem" }}>
-                      {["Group A", "Group B", "Group C"].map((grp) => (
+                  <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                    {isGroup && (
+                      ["Group A", "Group B", "Group C"].map((grp) => (
                         <button
                           key={grp}
                           type="button"
@@ -1196,9 +1182,38 @@ export default function ExamRecorderPage() {
                         >
                           {grp}
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    )}
+                    {isSession && (
+                      ["Morning Session", "Evening Session", "Afternoon Session", "Weekend Session"].map((sess) => (
+                        <button
+                          key={sess}
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            padding: "0.15rem 0.45rem",
+                            fontSize: "0.725rem",
+                            background: editRecordForm[f.key] === sess ? "var(--brand-accent)" : "#ffffff",
+                            borderColor: editRecordForm[f.key] === sess ? "var(--brand-primary)" : "var(--brand-border)"
+                          }}
+                          onClick={() => setEditRecordForm((prev) => ({ ...prev, [f.key]: sess }))}
+                        >
+                          {sess.replace(" Session", "")}
+                        </button>
+                      ))
+                    )}
+                    {f.hasDefault && f.defaultValue && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        style={{ padding: "0.15rem 0.45rem", fontSize: "0.725rem", color: "var(--brand-primary)" }}
+                        onClick={() => setEditRecordForm((prev) => ({ ...prev, [f.key]: f.defaultValue }))}
+                        title={`Fill default: "${f.defaultValue}"`}
+                      >
+                        Default
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <input
                   type={f.type === "number" ? "number" : "text"}
