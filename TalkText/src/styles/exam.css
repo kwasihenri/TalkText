@@ -14,6 +14,42 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Mode Switch Tabs */
+.exam-mode-nav {
+  display: flex;
+  gap: 0.5rem;
+  background: #f1f5f9;
+  padding: 0.3rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+  width: fit-content;
+}
+
+.exam-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--brand-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.exam-mode-tab:hover {
+  color: var(--brand-primary);
+}
+
+.exam-mode-tab.active {
+  background: #ffffff;
+  color: var(--brand-primary);
+  box-shadow: var(--shadow-xs);
+}
+
 .exam-prompt-stage {
   background: #ffffff;
   border: 1px solid var(--brand-border);
@@ -126,6 +162,55 @@
 .stepper-item.completed {
   background: #dcfce7;
   color: #15803d;
+}
+
+/* Rapid Stream Slots Grid */
+.stream-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.stream-slot-card {
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  transition: all var(--transition-fast);
+}
+
+.stream-slot-card.active {
+  border-color: var(--brand-primary);
+  background: var(--brand-accent);
+  box-shadow: 0 0 0 2px rgba(29, 61, 143, 0.2);
+  transform: translateY(-2px);
+}
+
+.stream-slot-card.filled {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.stream-slot-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--brand-muted);
+  letter-spacing: 0.04em;
+}
+
+.stream-slot-value {
+  font-size: 0.925rem;
+  font-family: var(--font-mono);
+  color: var(--brand-primary);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Recorded Entries Table */

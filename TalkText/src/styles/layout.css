@@ -273,9 +273,10 @@
   backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 1rem;
+  align-items: flex-start;
+  padding: 2.5rem 1rem;
+  overflow-y: auto;
 }
 
 .modal-box {
@@ -284,9 +285,10 @@
   box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 680px;
-  max-height: 90vh;
+  max-height: calc(100vh - 5rem);
   display: flex;
   flex-direction: column;
+  margin: auto 0;
   overflow: hidden;
   border: 1px solid var(--brand-border);
   animation: popIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);

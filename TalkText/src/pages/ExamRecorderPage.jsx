@@ -4,6 +4,25 @@ import { parseExamInput } from "../services/examInputParser";
 import { useToast } from "../context/useToast";
 import Modal from "../components/Modal";
 
+function playChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch {}
+}
+
 export default function ExamRecorderPage() {
   const toast = useToast();
 
@@ -11,6 +30,7 @@ export default function ExamRecorderPage() {
   const [records, setRecords] = useState(() => storage.getExamRecords());
   const [settings] = useState(() => storage.getExamSettings());
 
+  const [recordingMode, setRecordingMode] = useState("conversational");
   const [isRunning, setIsRunning] = useState(false);
   const [currentFieldIdx, setCurrentFieldIdx] = useState(0);
   const [currentDraft, setCurrentDraft] = useState({});
@@ -37,6 +57,7 @@ export default function ExamRecorderPage() {
 
   const recognitionRef = useRef(null);
   const isRunningRef = useRef(false);
+  const recordingModeRef = useRef("conversational");
   const currentFieldIdxRef = useRef(0);
   const currentDraftRef = useRef({});
   const fieldsRef = useRef(fields);
@@ -53,6 +74,10 @@ export default function ExamRecorderPage() {
   useEffect(() => {
     isRunningRef.current = isRunning;
   }, [isRunning]);
+
+  useEffect(() => {
+    recordingModeRef.current = recordingMode;
+  }, [recordingMode]);
 
   useEffect(() => {
     currentFieldIdxRef.current = currentFieldIdx;
@@ -99,34 +124,14 @@ export default function ExamRecorderPage() {
     }
     if (recognitionRef.current) {
       try {
+        recognitionRef.current.onend = null;
         recognitionRef.current.stop();
       } catch {}
       recognitionRef.current = null;
     }
   }
 
-  function askFieldAtIndex(fieldIndex) {
-    if (!isRunningRef.current) return;
-    const field = fieldsRef.current[fieldIndex];
-    if (!field) return;
-
-    setStageStatus("speaking");
-    const promptToSpeak = field.voicePrompt || `Please say the ${field.label}`;
-
-    speak(promptToSpeak, () => {
-      if (isRunningRef.current) {
-        listenForInput();
-      }
-    });
-  }
-
-  function askCurrentField() {
-    askFieldAtIndex(currentFieldIdxRef.current);
-  }
-
-  function finalizeStudentRecord(finalDraft) {
-    setStageStatus("confirming");
-
+  function commitStudentRecord(finalDraft, isStream = false) {
     const newRecord = {
       id: `rec-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -140,23 +145,52 @@ export default function ExamRecorderPage() {
     });
 
     const studentIdVal = finalDraft.studentId || "Student";
-    const marksVal = finalDraft.marks || "unmarked";
-    const recapText = `Recorded ${studentIdVal}. Marks ${marksVal}. Next person.`;
-
+    const marksVal = finalDraft.marks || "0";
     toast.success(`Recorded: ${studentIdVal} (${marksVal} marks)`);
+    playChime();
 
-    speak(recapText, () => {
+    if (isStream) {
+      setCurrentDraft({});
+      setCurrentFieldIdx(0);
+      currentDraftRef.current = {};
+      currentFieldIdxRef.current = 0;
+    } else {
+      setStageStatus("confirming");
+      const recapText = `Recorded ${studentIdVal}. Marks ${marksVal}. Next person.`;
+      speak(recapText, () => {
+        if (isRunningRef.current) {
+          setCurrentDraft({});
+          setCurrentFieldIdx(0);
+          currentDraftRef.current = {};
+          currentFieldIdxRef.current = 0;
+          setTimeout(() => {
+            askFieldAtIndex(0);
+          }, 700);
+        }
+      });
+    }
+  }
+
+  function askFieldAtIndex(fieldIndex) {
+    if (!isRunningRef.current) return;
+    const field = fieldsRef.current[fieldIndex];
+    if (!field) return;
+
+    setStageStatus("speaking");
+    const promptToSpeak = field.voicePrompt || `Please say the ${field.label}`;
+
+    speak(promptToSpeak, () => {
       if (isRunningRef.current) {
-        setCurrentDraft({});
-        setCurrentFieldIdx(0);
-        setTimeout(() => {
-          askFieldAtIndex(0);
-        }, 800);
+        listenForConversationalInput();
       }
     });
   }
 
-  function handleInputReceived(rawSpoken) {
+  function askCurrentField() {
+    askFieldAtIndex(currentFieldIdxRef.current);
+  }
+
+  function handleConversationalInput(rawSpoken) {
     const currentFields = fieldsRef.current;
     const idx = currentFieldIdxRef.current;
     const field = currentFields[idx];
@@ -164,7 +198,6 @@ export default function ExamRecorderPage() {
     if (!field) return;
 
     setHearingText(rawSpoken);
-
     const { value, action } = parseExamInput(rawSpoken, field);
 
     if (action === "stop") {
@@ -183,7 +216,7 @@ export default function ExamRecorderPage() {
         setCurrentFieldIdx(idx - 1);
         setTimeout(() => askCurrentField(), 300);
       } else {
-        toast.info("Already at first field.");
+        toast.info("Already at first question.");
         askCurrentField();
       }
       return;
@@ -201,11 +234,76 @@ export default function ExamRecorderPage() {
         askFieldAtIndex(idx + 1);
       }, 400);
     } else {
-      finalizeStudentRecord(updatedDraft);
+      commitStudentRecord(updatedDraft, false);
     }
   }
 
-  function listenForInput() {
+  function handleRapidStreamInput(rawSpoken) {
+    if (!rawSpoken || !isRunningRef.current) return;
+
+    setHearingText(rawSpoken);
+    const normalized = rawSpoken.trim().toLowerCase();
+
+    if (normalized === "stop" || normalized === "pause" || normalized === "stop stream") {
+      stopSession();
+      toast.info("Rapid stream paused.");
+      return;
+    }
+
+    if (normalized === "clear draft" || normalized === "reset current" || normalized === "cancel student") {
+      setCurrentDraft({});
+      setCurrentFieldIdx(0);
+      currentDraftRef.current = {};
+      currentFieldIdxRef.current = 0;
+      toast.info("Current student draft cleared.");
+      return;
+    }
+
+    const chunks = rawSpoken.split(/,|\s{2,}/).map((s) => s.trim()).filter(Boolean);
+
+    let draft = { ...currentDraftRef.current };
+    let idx = currentFieldIdxRef.current;
+    const currentFields = fieldsRef.current;
+
+    for (const chunk of chunks) {
+      if (idx >= currentFields.length) break;
+      const field = currentFields[idx];
+      const { value, action } = parseExamInput(chunk, field);
+
+      if (action === "stop") {
+        stopSession();
+        toast.info("Stream paused.");
+        return;
+      }
+      if (action === "undo") {
+        if (idx > 0) {
+          idx--;
+          delete draft[currentFields[idx].key];
+        }
+        continue;
+      }
+      if (action === "skip") {
+        draft[field.key] = field.defaultValue || "";
+        idx++;
+        continue;
+      }
+
+      draft[field.key] = value || (field.hasDefault ? field.defaultValue : "");
+      idx++;
+    }
+
+    currentDraftRef.current = draft;
+    setCurrentDraft({ ...draft });
+
+    if (idx >= currentFields.length) {
+      commitStudentRecord(draft, true);
+    } else {
+      currentFieldIdxRef.current = idx;
+      setCurrentFieldIdx(idx);
+    }
+  }
+
+  function listenForConversationalInput() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast.error("Speech Recognition is not supported in this browser.");
@@ -232,7 +330,7 @@ export default function ExamRecorderPage() {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          handleInputReceived(transcript);
+          handleConversationalInput(transcript);
           return;
         } else {
           interim += transcript;
@@ -246,9 +344,66 @@ export default function ExamRecorderPage() {
       if (event.error === "no-speech" && isRunningRef.current) {
         speak("I didn't catch that. " + fieldsRef.current[currentFieldIdxRef.current]?.voicePrompt, () => {
           if (isRunningRef.current) {
-            listenForInput();
+            listenForConversationalInput();
           }
         });
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch {
+      setIsRunning(false);
+    }
+  }
+
+  function startRapidStreamRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Speech Recognition is not supported in this browser.");
+      setIsRunning(false);
+      return;
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+
+    setStageStatus("listening");
+    setHearingText("");
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          handleRapidStreamInput(transcript);
+        } else {
+          interim += transcript;
+        }
+      }
+      if (interim) setHearingText(interim);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("[TalkText][ExamRecorder] Stream error:", event.error);
+    };
+
+    recognition.onend = () => {
+      if (isRunningRef.current && recordingModeRef.current === "rapid") {
+        try {
+          recognition.start();
+        } catch {
+          setIsRunning(false);
+        }
       }
     };
 
@@ -268,14 +423,22 @@ export default function ExamRecorderPage() {
     setIsRunning(true);
     setCurrentFieldIdx(0);
     setCurrentDraft({});
-    setStageStatus("speaking");
-    toast.info("Exam recording assistant started.");
+    currentFieldIdxRef.current = 0;
+    currentDraftRef.current = {};
 
-    speak("Exam recording started. " + fields[0].voicePrompt, () => {
-      if (isRunningRef.current) {
-        listenForInput();
-      }
-    });
+    if (recordingMode === "rapid") {
+      setStageStatus("listening");
+      toast.info("Continuous Stream active. Speak sequence with natural pauses.");
+      startRapidStreamRecognition();
+    } else {
+      setStageStatus("speaking");
+      toast.info("Exam recording assistant started.");
+      speak("Exam recording started. " + fields[0].voicePrompt, () => {
+        if (isRunningRef.current) {
+          listenForConversationalInput();
+        }
+      });
+    }
   };
 
   useEffect(() => {
@@ -434,9 +597,8 @@ export default function ExamRecorderPage() {
           </div>
           <h1 className="hero-heading">Exam & Marks Voice Recorder</h1>
           <p className="hero-description">
-            Automate data entry entirely hands-free. TalkText asks each question, listens for student ID 
-            (with prefix formatting e.g. <code>4231230041</code>), fills default course details, records marks, 
-            confirms with speech, and calls next.
+            Hands-free exam data entry with two powerful modes: conversational question-and-answer, 
+            or continuous rapid dictation stream where you dictate values sequentially with natural pauses.
           </p>
         </div>
 
@@ -455,6 +617,30 @@ export default function ExamRecorderPage() {
         </div>
       </section>
 
+      {/* Mode Switcher Tabs */}
+      <div className="exam-mode-nav">
+        <button
+          className={`exam-mode-tab ${recordingMode === "conversational" ? "active" : ""}`}
+          onClick={() => {
+            if (isRunning) stopSession();
+            setRecordingMode("conversational");
+          }}
+        >
+          <i className="fa-solid fa-comments"></i>
+          <span>Conversational Q&A</span>
+        </button>
+        <button
+          className={`exam-mode-tab ${recordingMode === "rapid" ? "active" : ""}`}
+          onClick={() => {
+            if (isRunning) stopSession();
+            setRecordingMode("rapid");
+          }}
+        >
+          <i className="fa-solid fa-bolt"></i>
+          <span>Rapid Continuous Stream</span>
+        </button>
+      </div>
+
       {/* Main Studio Grid */}
       <div className="studio-layout">
         {/* Left Column: Live Voice Stage & Current Student Progress */}
@@ -463,8 +649,10 @@ export default function ExamRecorderPage() {
           <div className={`exam-prompt-stage ${stageStatus === "listening" ? "active-listening animate-pulse-glow" : ""}`}>
             <div className="stage-header-row">
               <span className="stage-step-pill">
-                <i className="fa-solid fa-clipboard-question"></i>
-                Field {currentFieldIdx + 1} of {fields.length}: {currentField?.label}
+                <i className={`fa-solid ${recordingMode === "rapid" ? "fa-bolt" : "fa-clipboard-question"}`}></i>
+                {recordingMode === "rapid"
+                  ? `Rapid Stream Slot ${currentFieldIdx + 1} of ${fields.length}: ${currentField?.label}`
+                  : `Field ${currentFieldIdx + 1} of ${fields.length}: ${currentField?.label}`}
               </span>
 
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -489,7 +677,7 @@ export default function ExamRecorderPage() {
                     }`}
                   ></i>
                   {stageStatus === "listening"
-                    ? "Listening for voice..."
+                    ? (recordingMode === "rapid" ? "Stream Listening..." : "Listening for voice...")
                     : stageStatus === "speaking"
                     ? "Speaking prompt..."
                     : stageStatus === "confirming"
@@ -499,24 +687,36 @@ export default function ExamRecorderPage() {
               </div>
             </div>
 
-            {/* Big Question Headline */}
+            {/* Stage Headline */}
             <div className="stage-voice-bubble">
-              {isRunning
-                ? currentField?.voicePrompt
-                : "Press 'Start Session' to begin automated hands-free exam entry."}
+              {recordingMode === "rapid"
+                ? (isRunning
+                    ? `Dictating Student #${records.length + 1}: Saying values with pauses...`
+                    : "Press 'Start Stream' and dictate: ID [pause] default [pause] default [pause] C [pause] 50")
+                : (isRunning
+                    ? currentField?.voicePrompt
+                    : "Press 'Start Voice Assistant' to begin automated hands-free exam entry.")}
             </div>
 
             {/* Field Hint */}
             <div style={{ fontSize: "0.85rem", color: "var(--brand-muted)" }}>
-              {currentField?.type === "id" && currentField.prefix && (
+              {recordingMode === "rapid" ? (
                 <span>
-                  Prefix rule: <strong>{currentField.prefix}</strong> + {currentField.padDigits} digits. (Say "41" &rarr; <code>{currentField.prefix}0041</code>).
+                  Tip: Speak each value with a brief natural pause (e.g. <code>41 [pause] default [pause] C [pause] 85</code>). Saying <code>sea</code> auto-maps to <strong>Group C</strong>.
                 </span>
-              )}
-              {currentField?.hasDefault && (
-                <span>
-                  Default value: <strong>"{currentField.defaultValue}"</strong> (Say "default" or "same" to use).
-                </span>
+              ) : (
+                <>
+                  {currentField?.type === "id" && currentField.prefix && (
+                    <span>
+                      Prefix rule: <strong>{currentField.prefix}</strong> + {currentField.padDigits} digits. (Say "41" &rarr; <code>{currentField.prefix}0041</code>).
+                    </span>
+                  )}
+                  {currentField?.hasDefault && (
+                    <span>
+                      Default value: <strong>"{currentField.defaultValue}"</strong> (Say "default" or "same" to use).
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
@@ -533,41 +733,54 @@ export default function ExamRecorderPage() {
 
               {isRunning && (
                 <div style={{ display: "flex", gap: "0.4rem" }}>
-                  <button className="btn btn-outline btn-sm" onClick={askCurrentField} title="Repeat question">
-                    <i className="fa-solid fa-rotate-left"></i> Repeat
-                  </button>
+                  {recordingMode === "conversational" && (
+                    <button className="btn btn-outline btn-sm" onClick={askCurrentField} title="Repeat question">
+                      <i className="fa-solid fa-rotate-left"></i> Repeat
+                    </button>
+                  )}
                   <button
                     className="btn btn-outline btn-sm"
-                    onClick={() => handleInputReceived(currentField?.defaultValue || "skip")}
+                    onClick={() => {
+                      if (recordingMode === "rapid") {
+                        handleRapidStreamInput(currentField?.defaultValue || "skip");
+                      } else {
+                        handleConversationalInput(currentField?.defaultValue || "skip");
+                      }
+                    }}
                     title="Skip with default"
                   >
-                    <i className="fa-solid fa-forward-step"></i> Skip
+                    <i className="fa-solid fa-forward-step"></i> Skip Field
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Stepper Progress */}
-            <div className="stage-progress-bar">
-              <div className="stage-progress-fill" style={{ width: `${isRunning ? progressPercent : 0}%` }}></div>
-            </div>
-
-            <div className="fields-stepper">
+            {/* Live Visual Slots Grid */}
+            <div className="stream-slots-grid">
               {fields.map((f, i) => {
                 const isCurrent = isRunning && i === currentFieldIdx;
-                const isDone = isRunning && i < currentFieldIdx;
-                const valueInDraft = currentDraft[f.key];
+                const isFilled = currentDraft[f.key] !== undefined && currentDraft[f.key] !== "";
+                const val = currentDraft[f.key] || (f.hasDefault ? f.defaultValue : "—");
 
                 return (
                   <div
                     key={f.id}
-                    className={`stepper-item ${isCurrent ? "current" : isDone ? "completed" : ""}`}
+                    className={`stream-slot-card ${isCurrent ? "active animate-pulse-glow" : ""} ${isFilled ? "filled" : ""}`}
                   >
-                    <span>{f.label}:</span>
-                    <strong>{valueInDraft || (f.hasDefault ? f.defaultValue : "...")}</strong>
+                    <div className="stream-slot-label">
+                      #{i + 1} {f.label}
+                    </div>
+                    <div className="stream-slot-value">
+                      {isFilled ? currentDraft[f.key] : isCurrent ? "Listening..." : val}
+                    </div>
                   </div>
                 );
               })}
+            </div>
+
+            {/* Stepper Progress */}
+            <div className="stage-progress-bar" style={{ marginTop: "0.5rem" }}>
+              <div className="stage-progress-fill" style={{ width: `${isRunning ? progressPercent : 0}%` }}></div>
             </div>
           </div>
 
@@ -579,14 +792,24 @@ export default function ExamRecorderPage() {
                 onClick={isRunning ? stopSession : startSession}
               >
                 <i className={`fa-solid ${isRunning ? "fa-circle-pause" : "fa-circle-play"}`}></i>
-                <span>{isRunning ? "Pause Assistant" : "Start Voice Assistant"}</span>
+                <span>
+                  {isRunning
+                    ? "Pause Assistant"
+                    : recordingMode === "rapid"
+                    ? "Start Rapid Stream"
+                    : "Start Voice Assistant"}
+                </span>
               </button>
 
               {isRunning && (
                 <button
                   className="btn btn-outline btn-lg"
                   onClick={() => {
-                    handleInputReceived(currentField?.defaultValue || "skip");
+                    if (recordingMode === "rapid") {
+                      handleRapidStreamInput(currentField?.defaultValue || "skip");
+                    } else {
+                      handleConversationalInput(currentField?.defaultValue || "skip");
+                    }
                   }}
                 >
                   <i className="fa-solid fa-forward-step"></i> Next Field
@@ -694,7 +917,7 @@ export default function ExamRecorderPage() {
             </div>
             <div>
               <h2 className="card-title">Recorded Exam Entries</h2>
-              <span className="card-subtitle">{records.length} students recorded in this session</span>
+              <span className="card-subtitle">{records.length} students recorded &bull; Click any cell to edit</span>
             </div>
           </div>
 
@@ -717,7 +940,7 @@ export default function ExamRecorderPage() {
           {records.length === 0 ? (
             <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--brand-muted)" }}>
               <i className="fa-solid fa-clipboard-user" style={{ fontSize: "2rem", color: "var(--brand-muted-light)", marginBottom: "0.75rem" }}></i>
-              <p style={{ fontSize: "0.9rem" }}>No students recorded yet. Press "Start Voice Assistant" to begin recording.</p>
+              <p style={{ fontSize: "0.9rem" }}>No students recorded yet. Press "Start" to begin recording.</p>
             </div>
           ) : (
             <table className="exam-records-table">
@@ -821,7 +1044,7 @@ export default function ExamRecorderPage() {
               required
             />
             <span style={{ fontSize: "0.75rem", color: "var(--brand-muted)" }}>
-              The exact question the voice assistant will speak aloud.
+              The exact question the voice assistant will speak aloud in Conversational mode.
             </span>
           </div>
 
