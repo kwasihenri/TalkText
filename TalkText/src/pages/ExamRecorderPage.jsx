@@ -21,6 +21,10 @@ export default function ExamRecorderPage() {
   const [clearModalOpen, setClearModalOpen] = useState(false);
   const [editingField, setEditingField] = useState(null);
 
+  const [editRecordModalOpen, setEditRecordModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [editRecordForm, setEditRecordForm] = useState({});
+
   const [fieldForm, setFieldForm] = useState({
     label: "",
     voicePrompt: "",
@@ -360,6 +364,25 @@ export default function ExamRecorderPage() {
     const reset = storage.resetExamFields();
     setFields(reset);
     toast.info("Fields reset to defaults.");
+  };
+
+  const handleOpenEditRecord = (record) => {
+    setEditingRecord(record);
+    setEditRecordForm({ ...record });
+    setEditRecordModalOpen(true);
+  };
+
+  const handleSaveRecordEdit = (e) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+    const updated = records.map((r) =>
+      r.id === editingRecord.id ? { ...editRecordForm } : r
+    );
+    setRecords(updated);
+    storage.saveExamRecords(updated);
+    setEditRecordModalOpen(false);
+    setEditingRecord(null);
+    toast.success(`Updated entry for ${editRecordForm.studentId || "Student"}`);
   };
 
   const handleDeleteRecord = (id) => {
@@ -716,7 +739,12 @@ export default function ExamRecorderPage() {
                       {new Date(r.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </td>
                     {fields.map((f) => (
-                      <td key={f.id}>
+                      <td
+                        key={f.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => handleOpenEditRecord(r)}
+                        title="Click to edit cell data"
+                      >
                         {f.type === "id" ? (
                           <span className="badge-id">{r[f.key] || "—"}</span>
                         ) : f.type === "number" ? (
@@ -726,15 +754,24 @@ export default function ExamRecorderPage() {
                         )}
                       </td>
                     ))}
-                    <td style={{ textAlign: "right" }}>
-                      <button
-                        className="btn btn-ghost btn-sm btn-icon"
-                        onClick={() => handleDeleteRecord(r.id)}
-                        title="Delete entry"
-                        style={{ color: "var(--brand-danger)" }}
-                      >
-                        <i className="fa-solid fa-xmark"></i>
-                      </button>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <div style={{ display: "inline-flex", gap: "0.25rem" }}>
+                        <button
+                          className="btn btn-ghost btn-sm btn-icon"
+                          onClick={() => handleOpenEditRecord(r)}
+                          title="Edit student record"
+                        >
+                          <i className="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm btn-icon"
+                          onClick={() => handleDeleteRecord(r.id)}
+                          title="Delete entry"
+                          style={{ color: "var(--brand-danger)" }}
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -880,6 +917,82 @@ export default function ExamRecorderPage() {
         <p style={{ fontSize: "0.9rem" }}>
           Are you sure you want to delete all <strong>{records.length}</strong> recorded entries? Make sure to download a CSV backup first if you need to keep them.
         </p>
+      </Modal>
+
+      {/* Modal: Edit Student Record */}
+      <Modal
+        isOpen={editRecordModalOpen}
+        onClose={() => {
+          setEditRecordModalOpen(false);
+          setEditingRecord(null);
+        }}
+        title={`Edit Record #${editingRecord ? records.findIndex((r) => r.id === editingRecord.id) + 1 : ""}`}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                setEditRecordModalOpen(false);
+                setEditingRecord(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={handleSaveRecordEdit}
+            >
+              Save Changes
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleSaveRecordEdit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {fields.map((f) => {
+            const isGroup = f.key?.toLowerCase().includes("group") || f.label?.toLowerCase().includes("group");
+            return (
+              <div key={f.id} className="form-group">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <label className="label">{f.label}</label>
+                  {isGroup && (
+                    <div style={{ display: "flex", gap: "0.3rem" }}>
+                      {["Group A", "Group B", "Group C"].map((grp) => (
+                        <button
+                          key={grp}
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            padding: "0.15rem 0.45rem",
+                            fontSize: "0.725rem",
+                            background: editRecordForm[f.key] === grp ? "var(--brand-accent)" : "#ffffff",
+                            borderColor: editRecordForm[f.key] === grp ? "var(--brand-primary)" : "var(--brand-border)"
+                          }}
+                          onClick={() => setEditRecordForm((prev) => ({ ...prev, [f.key]: grp }))}
+                        >
+                          {grp}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <input
+                  type={f.type === "number" ? "number" : "text"}
+                  className={`input ${f.type === "id" || f.type === "number" ? "input-mono" : ""}`}
+                  value={editRecordForm[f.key] || ""}
+                  onChange={(e) =>
+                    setEditRecordForm((prev) => ({
+                      ...prev,
+                      [f.key]: e.target.value
+                    }))
+                  }
+                  placeholder={`Enter ${f.label}`}
+                />
+              </div>
+            );
+          })}
+        </form>
       </Modal>
     </div>
   );

@@ -30,6 +30,28 @@ const NUMBER_WORDS = {
   hundred: 100
 };
 
+const PHONETIC_LETTER_MAP = {
+  sea: "C",
+  see: "C",
+  si: "C",
+  c: "C",
+  bee: "B",
+  be: "B",
+  b: "B",
+  ay: "A",
+  hey: "A",
+  eh: "A",
+  a: "A",
+  dee: "D",
+  de: "D",
+  d: "D",
+  e: "E",
+  ef: "F",
+  f: "F",
+  gee: "G",
+  g: "G"
+};
+
 export function wordsToNumber(str) {
   if (!str) return null;
   const direct = str.replace(/[^0-9.]/g, "");
@@ -62,6 +84,37 @@ export function wordsToNumber(str) {
   return foundNumber ? String(total) : null;
 }
 
+function resolveLetterOrGroup(spokenText, field) {
+  if (!spokenText) return null;
+  const clean = spokenText.trim().toLowerCase().replace(/[.,!?;:]/g, "");
+
+  const isGroupField =
+    (field.key && field.key.toLowerCase().includes("group")) ||
+    (field.label && field.label.toLowerCase().includes("group")) ||
+    (field.defaultValue && field.defaultValue.toLowerCase().startsWith("group"));
+
+  const groupMatch = clean.match(/^group\s+([a-z]+)$/i);
+  if (groupMatch) {
+    const letterKey = groupMatch[1].toLowerCase();
+    const mappedLetter = PHONETIC_LETTER_MAP[letterKey] || groupMatch[1].toUpperCase();
+    return `Group ${mappedLetter}`;
+  }
+
+  if (PHONETIC_LETTER_MAP[clean]) {
+    const letter = PHONETIC_LETTER_MAP[clean];
+    return isGroupField ? `Group ${letter}` : letter;
+  }
+
+  if (isGroupField) {
+    if (clean === "sea" || clean === "see" || clean === "c") return "Group C";
+    if (clean === "bee" || clean === "be" || clean === "b") return "Group B";
+    if (clean === "ay" || clean === "a") return "Group A";
+    if (clean === "dee" || clean === "d") return "Group D";
+  }
+
+  return null;
+}
+
 export function parseExamInput(spokenText, field) {
   if (!spokenText || typeof spokenText !== "string") {
     return { value: "", action: null };
@@ -84,6 +137,11 @@ export function parseExamInput(spokenText, field) {
 
   if (normalized.includes("default") || normalized.includes("same") || normalized === "yes") {
     return { value: field.defaultValue || "", action: null };
+  }
+
+  const phoneticGroupVal = resolveLetterOrGroup(spokenText, field);
+  if (phoneticGroupVal !== null) {
+    return { value: phoneticGroupVal, action: null };
   }
 
   if (field.type === "id") {
