@@ -318,6 +318,14 @@ code, kbd, samp, pre {
   animation: pulseGlow 1.8s infinite;
 }
 
+/* Table Scroll Wrapper for Mobile Responsiveness */
+.table-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: inherit;
+}
+
 /* Toast Container */
 .toast-container {
   position: fixed;
@@ -364,3 +372,40 @@ code, kbd, samp, pre {
   background: none;
   border: none;
 }
+
+/* Mobile Global Ergonomics */
+@media (max-width: 768px) {
+  .toast-container {
+    bottom: calc(4.85rem + env(safe-area-inset-bottom));
+    left: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .toast-item {
+    min-width: unset;
+    width: 100%;
+    max-width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.825rem;
+  }
+
+  .btn {
+    min-height: 40px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-sm {
+    min-height: 34px;
+    padding: 0.4rem 0.65rem;
+  }
+
+  .btn-lg {
+    min-height: 46px;
+  }
+
+  .btn-label-desktop {
+    display: none !important;
+  }
+}
+

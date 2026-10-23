@@ -367,41 +367,9 @@ export default function SpeechToTextPage() {
   const timeFormatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
   return (
-    <div className="animate-pop-in">
-      {/* Hero Section */}
-      <section className="page-hero">
-        <div className="hero-content">
-          <div className="hero-badge-row">
-            <span className="badge badge-brand">
-              <i className="fa-solid fa-microphone-lines"></i> Voice Dictation Studio
-            </span>
-            <span className="badge badge-neutral">Continuous Web Speech</span>
-          </div>
-          <h1 className="hero-heading">Listen & Transcribe with Custom Voice Rules</h1>
-          <p className="hero-description">
-            Dictate freely with full macro support. Say words like <code>newline</code>, <code>comma</code>, 
-            or custom phrases to format your text instantly in real time.
-          </p>
-        </div>
-
-        <div className="hero-stats-banner">
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">{rules.filter((r) => r.active).length}</div>
-            <div className="hero-stat-label">Active Rules</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">{wordCount}</div>
-            <div className="hero-stat-label">Words</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">{timeFormatted}</div>
-            <div className="hero-stat-label">Duration</div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Studio Grid */}
-      <div className="studio-layout">
+    <div className="stt-app-container">
+      {/* Studio Grid */}
+      <div className="studio-layout full-height-studio">
         {/* Left Column: Recording Controls & Main Editor */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           {/* Recording Control Bar */}
@@ -587,7 +555,7 @@ export default function SpeechToTextPage() {
               </button>
             </div>
 
-            <div className="card-body" style={{ maxHeight: "360px", overflowY: "auto", padding: "1rem" }}>
+            <div className="card-body" style={{ maxHeight: "240px", overflowY: "auto", padding: "1rem" }}>
               <div className="rules-container">
                 {rules.map((rule) => (
                   <div

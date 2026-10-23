@@ -1,28 +1,34 @@
 import React from "react";
-import { Link } from "react-router-dom";
 
 export default function Footer() {
+  const hasRecognition =
+    typeof window !== "undefined" &&
+    ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
+  const hasSynthesis =
+    typeof window !== "undefined" && "speechSynthesis" in window;
+
   return (
-    <footer className="app-footer">
+    <footer className="app-footer" aria-label="Application Status Bar">
       <div className="footer-inner">
-        <div className="footer-copy">
-          <strong>TalkText Studio</strong> &bull; Custom Voice Dictation & Programmable TTS Engine.
+        <div className="footer-status-left">
+          <span className="footer-status-item">
+            <span className="status-indicator-dot online"></span>
+            <strong>TalkText Studio</strong>
+            <span className="app-ver-pill">v2.0</span>
+          </span>
+          <span className="footer-status-divider">&bull;</span>
+          <span className="footer-status-item privacy-pill">
+            <i className="fa-solid fa-shield-halved"></i> Local Browser Engine &bull; Zero Cloud Telemetry
+          </span>
         </div>
-        <div className="footer-links">
-          <Link to="/speech-to-text" className="footer-link">
-            <i className="fa-solid fa-microphone"></i> Dictation
-          </Link>
-          <Link to="/text-to-speech" className="footer-link">
-            <i className="fa-solid fa-volume-high"></i> TTS Synthesizer
-          </Link>
-          <Link to="/exam-recorder" className="footer-link">
-            <i className="fa-solid fa-graduation-cap"></i> Exam Recorder
-          </Link>
-          <Link to="/settings" className="footer-link">
-            <i className="fa-solid fa-gear"></i> Voice Rules
-          </Link>
-          <span style={{ fontSize: "0.8rem", color: "var(--brand-muted-light)" }}>
-            | Zero telemetry &bull; Browser-local processing
+        <div className="footer-status-right">
+          <span className="footer-engine-badge">
+            <i className="fa-solid fa-microphone"></i>
+            STT {hasRecognition ? "Online" : "Off"}
+          </span>
+          <span className="footer-engine-badge">
+            <i className="fa-solid fa-volume-high"></i>
+            TTS {hasSynthesis ? "Online" : "Off"}
           </span>
         </div>
       </div>

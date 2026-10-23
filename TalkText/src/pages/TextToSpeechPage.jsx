@@ -213,43 +213,9 @@ export default function TextToSpeechPage() {
   });
 
   return (
-    <div className="animate-pop-in">
-      {/* Hero Section */}
-      <section className="page-hero">
-        <div className="hero-content">
-          <div className="hero-badge-row">
-            <span className="badge badge-brand">
-              <i className="fa-solid fa-volume-high"></i> Programmable Speech Synthesizer
-            </span>
-            <span className="badge badge-neutral">Micro-Pause Engine</span>
-          </div>
-          <h1 className="hero-heading">Text to Speech with Dynamic Micro-Pauses & Pacing</h1>
-          <p className="hero-description">
-            Shape natural human speech rhythm. Insert <code>(rpause)</code> for rapid breathing spaces, 
-            <code>(lpause)</code> for dramatic beats, or speed modifiers like <code>(speed:1.3)</code> seamlessly mid-sentence.
-          </p>
-        </div>
-
-        <div className="hero-stats-banner">
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">{voices.length}</div>
-            <div className="hero-stat-label">System Voices</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">{parsedData.steps.length}</div>
-            <div className="hero-stat-label">Parsed Steps</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">
-              {parsedData.steps.filter((s) => s.type === "pause").length}
-            </div>
-            <div className="hero-stat-label">Pauses</div>
-          </div>
-        </div>
-      </section>
-
+    <div className="tts-app-container">
       {/* Main Studio Grid */}
-      <div className="studio-layout">
+      <div className="studio-layout full-height-studio">
         {/* Left Column: Script Editor & Playback */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           {/* Script Editor Panel */}

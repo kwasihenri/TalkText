@@ -147,64 +147,44 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="animate-pop-in">
-      {/* Hero Section */}
-      <section className="page-hero">
-        <div className="hero-content">
-          <div className="hero-badge-row">
-            <span className="badge badge-brand">
-              <i className="fa-solid fa-sliders"></i> System Configurations
-            </span>
-            <span className="badge badge-neutral">Rules & Tags Engine</span>
-          </div>
-          <h1 className="hero-heading">Voice Rules & TTS Tag References</h1>
-          <p className="hero-description">
-            Customize how TalkText interprets your spoken commands, manage punctuation triggers, 
-            and review the dynamic micro-pause syntax for speech synthesis.
-          </p>
-        </div>
-
-        <div className="hero-stats-banner">
-          <button className="btn btn-primary" onClick={handleExportData}>
-            <i className="fa-solid fa-download"></i> Backup JSON
-          </button>
-          <label className="btn btn-outline" style={{ cursor: "pointer", margin: 0 }}>
-            <i className="fa-solid fa-upload"></i> Restore JSON
-            <input
-              type="file"
-              accept=".json"
-              style={{ display: "none" }}
-              onChange={handleImportData}
-            />
-          </label>
-        </div>
-      </section>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.5rem", alignItems: "start" }}>
+    <div className="settings-app-container">
+      <div className="settings-grid full-height-settings">
         {/* Left Column: Full Rules Manager */}
-        <div className="card-panel">
+        <div className="card-panel rules-main-card">
           <div className="card-header">
             <div className="card-title-group">
               <div className="card-icon-bubble">
-                <i className="fa-solid fa-microphone-lines"></i>
+                <i className="fa-solid fa-sliders"></i>
               </div>
               <div>
-                <h2 className="card-title">Speech-to-Text Rules Engine</h2>
+                <h2 className="card-title">Voice Rules Engine</h2>
                 <span className="card-subtitle">{rules.length} custom macro rules loaded</span>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button className="btn btn-outline btn-sm" onClick={handleOpenAddModal}>
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+              <button className="btn btn-primary btn-sm" onClick={handleOpenAddModal}>
                 <i className="fa-solid fa-plus"></i> Add Rule
               </button>
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-outline btn-sm"
                 onClick={() => setResetModalOpen(true)}
                 title="Reset all rules to default"
               >
                 <i className="fa-solid fa-rotate-left"></i> Reset
               </button>
+              <button className="btn btn-outline btn-sm" onClick={handleExportData} title="Backup data to JSON">
+                <i className="fa-solid fa-download"></i> Backup
+              </button>
+              <label className="btn btn-outline btn-sm" style={{ cursor: "pointer", margin: 0 }} title="Restore data from JSON">
+                <i className="fa-solid fa-upload"></i> Restore
+                <input
+                  type="file"
+                  accept=".json"
+                  style={{ display: "none" }}
+                  onChange={handleImportData}
+                />
+              </label>
             </div>
           </div>
 

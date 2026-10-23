@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import BottomNav from "./components/BottomNav";
 import { ToastProvider } from "./components/Toast";
 import SpeechToTextPage from "./pages/SpeechToTextPage";
 import TextToSpeechPage from "./pages/TextToSpeechPage";
@@ -44,6 +45,7 @@ export default function App() {
             </Routes>
           </main>
           <Footer />
+          <BottomNav />
         </div>
       </BrowserRouter>
     </ToastProvider>

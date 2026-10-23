@@ -35,28 +35,26 @@ export default function Header() {
             <div className="brand-text-group">
               <span className="brand-title">
                 TalkText
-                <span className="badge badge-brand" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem" }}>
-                  v2.0
-                </span>
+                <span className="badge badge-brand brand-ver-tag">v2.0</span>
               </span>
-              <span className="brand-tagline">Speech-to-Text & TTS Studio</span>
+              <span className="brand-tagline">Speech & Audio Studio</span>
             </div>
           </Link>
 
-          <nav className="nav-tabs" aria-label="Main Navigation">
+          <nav className="nav-tabs desktop-only-nav" aria-label="Main Navigation">
             <NavLink
               to="/speech-to-text"
               className={({ isActive }) => `nav-tab-btn ${isActive ? "active" : ""}`}
             >
               <i className="fa-solid fa-microphone-lines"></i>
-              <span>Speech to Text</span>
+              <span>Dictate</span>
             </NavLink>
             <NavLink
               to="/text-to-speech"
               className={({ isActive }) => `nav-tab-btn ${isActive ? "active" : ""}`}
             >
               <i className="fa-solid fa-volume-high"></i>
-              <span>Text to Speech</span>
+              <span>Speech</span>
             </NavLink>
             <NavLink
               to="/exam-recorder"
@@ -70,35 +68,35 @@ export default function Header() {
               className={({ isActive }) => `nav-tab-btn ${isActive ? "active" : ""}`}
             >
               <i className="fa-solid fa-sliders"></i>
-              <span>Rules & Presets</span>
+              <span>Rules</span>
             </NavLink>
           </nav>
 
           <div className="header-actions">
-            <div style={{ display: "flex", gap: "0.35rem" }}>
+            <div className="header-status-pills">
               <span
-                className={`badge ${hasRecognition ? "badge-success" : "badge-danger"}`}
+                className={`badge badge-sm ${hasRecognition ? "badge-success" : "badge-danger"}`}
                 title={hasRecognition ? "Speech Recognition API Supported" : "Speech Recognition Not Supported"}
               >
                 <i className="fa-solid fa-microphone"></i>
-                STT {hasRecognition ? "Ready" : "Off"}
+                <span className="status-badge-text">STT</span>
               </span>
               <span
-                className={`badge ${hasSynthesis ? "badge-brand" : "badge-danger"}`}
+                className={`badge badge-sm ${hasSynthesis ? "badge-brand" : "badge-danger"}`}
                 title={hasSynthesis ? "Speech Synthesis API Supported" : "Speech Synthesis Not Supported"}
               >
                 <i className="fa-solid fa-headphones"></i>
-                TTS {hasSynthesis ? "Ready" : "Off"}
+                <span className="status-badge-text">TTS</span>
               </span>
             </div>
 
             <button
-              className="btn btn-outline btn-sm"
+              className="btn btn-outline btn-sm diagnostics-header-btn"
               onClick={() => setTestModalOpen(true)}
               title="Open audio diagnostics modal"
             >
               <i className="fa-solid fa-wrench"></i>
-              <span>Diagnostics</span>
+              <span className="diagnostics-btn-label">Diagnostics</span>
             </button>
           </div>
         </div>

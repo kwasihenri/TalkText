@@ -38,7 +38,7 @@ export default function ExamRecorderPage() {
   const [records, setRecords] = useState(() => storage.getExamRecords());
   const [settings] = useState(() => storage.getExamSettings());
 
-  const [recordingMode, setRecordingMode] = useState("conversational");
+  const [recordingMode, setRecordingMode] = useState("rapid");
   const [isRunning, setIsRunning] = useState(false);
   const [currentFieldIdx, setCurrentFieldIdx] = useState(0);
   const [currentDraft, setCurrentDraft] = useState({});
@@ -746,388 +746,180 @@ export default function ExamRecorderPage() {
   const progressPercent = Math.round(((currentFieldIdx + 1) / (fields.length || 1)) * 100);
 
   return (
-    <div className="animate-pop-in">
-      {/* Hero Header */}
-      <section className="page-hero">
-        <div className="hero-content">
-          <div className="hero-badge-row">
-            <span className="badge badge-brand">
-              <i className="fa-solid fa-graduation-cap"></i> Voice-Guided Exam Assistant
-            </span>
-            <span className="badge badge-neutral">Auto Ask &bull; Listen &bull; Repeat &bull; Next</span>
+    <div className="exam-app-container">
+      {/* Compact Native App Toolbar */}
+      <div className="exam-top-toolbar">
+        {/* Left: Mode Toggle & Live Status */}
+        <div className="toolbar-left-group">
+          <div className="exam-mode-pills">
+            <button
+              className={`mode-pill-btn ${recordingMode === "rapid" ? "active" : ""}`}
+              onClick={() => {
+                if (isRunning) stopSession();
+                setRecordingMode("rapid");
+              }}
+              title="Continuous rapid dictation stream"
+            >
+              <i className="fa-solid fa-bolt"></i>
+              <span>Rapid Stream</span>
+            </button>
+            <button
+              className={`mode-pill-btn ${recordingMode === "conversational" ? "active" : ""}`}
+              onClick={() => {
+                if (isRunning) stopSession();
+                setRecordingMode("conversational");
+              }}
+              title="Conversational question-and-answer"
+            >
+              <i className="fa-solid fa-comments"></i>
+              <span>Q&A</span>
+            </button>
           </div>
-          <h1 className="hero-heading">Exam & Marks Voice Recorder</h1>
-          <p className="hero-description">
-            Hands-free exam data entry with two powerful modes: conversational question-and-answer, 
-            or continuous rapid dictation stream where you dictate values sequentially with natural pauses.
-          </p>
+
+          <span
+            className={`badge badge-sm ${
+              stageStatus === "listening"
+                ? "badge-danger"
+                : stageStatus === "speaking"
+                ? "badge-brand"
+                : stageStatus === "confirming"
+                ? "badge-success"
+                : "badge-neutral"
+            }`}
+          >
+            <i
+              className={`fa-solid ${
+                stageStatus === "listening"
+                  ? "fa-microphone fa-fade"
+                  : stageStatus === "speaking"
+                  ? "fa-volume-high fa-fade"
+                  : "fa-circle"
+              }`}
+            ></i>
+            <span>
+              {stageStatus === "listening"
+                ? `Slot ${currentFieldIdx + 1}/${fields.length}: ${currentField?.label}`
+                : stageStatus === "speaking"
+                ? "Speaking..."
+                : stageStatus === "confirming"
+                ? "Saving..."
+                : "Ready"}
+            </span>
+          </span>
+
+          {hearingText && (
+            <span className="hearing-chip" title="Live recognized speech">
+              <i className="fa-solid fa-ear-listen"></i>
+              <span>"{hearingText}"</span>
+            </span>
+          )}
         </div>
 
-        <div className="hero-stats-banner">
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">{records.length}</div>
-            <div className="hero-stat-label">Students</div>
-          </div>
-          <div className="hero-stat-card">
-            <div className="hero-stat-num">{fields.length}</div>
-            <div className="hero-stat-label">Prompts</div>
-          </div>
-          <button className="btn btn-primary" onClick={handleExportCSV}>
-            <i className="fa-solid fa-file-csv"></i> Export CSV
+        {/* Right: Controls & Actions */}
+        <div className="toolbar-right-group">
+          <button
+            className={`btn btn-sm ${isRunning ? "btn-danger" : "btn-primary"} stream-toggle-btn`}
+            onClick={isRunning ? stopSession : startSession}
+            title="Press Spacebar to toggle recording"
+          >
+            <i className={`fa-solid ${isRunning ? "fa-circle-pause" : "fa-circle-play"}`}></i>
+            <span>{isRunning ? "Pause" : "Start"}</span>
+            <span className="keyboard-kbd">Space</span>
+          </button>
+
+          {isRunning && (
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                if (recordingMode === "rapid") {
+                  handleRapidStreamInput(currentField?.defaultValue || "skip");
+                } else {
+                  handleConversationalInput(currentField?.defaultValue || "skip");
+                }
+              }}
+              title="Skip to next field"
+            >
+              <i className="fa-solid fa-forward-step"></i>
+              <span>Next</span>
+            </button>
+          )}
+
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={handleOpenAddField}
+            title="Add custom exam field"
+          >
+            <i className="fa-solid fa-plus"></i>
+            <span className="btn-label-desktop">Field</span>
+          </button>
+
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleExportCSV}
+            title="Export CSV spreadsheet"
+          >
+            <i className="fa-solid fa-file-csv"></i>
+            <span className="btn-label-desktop">CSV</span>
+          </button>
+
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => setClearModalOpen(true)}
+            style={{ color: "var(--brand-danger)" }}
+            disabled={records.length === 0}
+            title="Clear recorded entries"
+          >
+            <i className="fa-solid fa-trash-can"></i>
           </button>
         </div>
-      </section>
-
-      {/* Mode Switcher Tabs */}
-      <div className="exam-mode-nav">
-        <button
-          className={`exam-mode-tab ${recordingMode === "conversational" ? "active" : ""}`}
-          onClick={() => {
-            if (isRunning) stopSession();
-            setRecordingMode("conversational");
-          }}
-        >
-          <i className="fa-solid fa-comments"></i>
-          <span>Conversational Q&A</span>
-        </button>
-        <button
-          className={`exam-mode-tab ${recordingMode === "rapid" ? "active" : ""}`}
-          onClick={() => {
-            if (isRunning) stopSession();
-            setRecordingMode("rapid");
-          }}
-        >
-          <i className="fa-solid fa-bolt"></i>
-          <span>Rapid Continuous Stream</span>
-        </button>
       </div>
 
-      {/* Main Studio Grid */}
-      <div className="studio-layout">
-        {/* Left Column: Live Voice Stage & Current Student Progress */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Active Voice Prompt Stage */}
-          <div className={`exam-prompt-stage ${stageStatus === "listening" ? "active-listening animate-pulse-glow" : ""}`}>
-            <div className="stage-header-row">
-              <span className="stage-step-pill">
-                <i className={`fa-solid ${recordingMode === "rapid" ? "fa-bolt" : "fa-clipboard-question"}`}></i>
-                {recordingMode === "rapid"
-                  ? `Rapid Stream Slot ${currentFieldIdx + 1} of ${fields.length}: ${currentField?.label}`
-                  : `Field ${currentFieldIdx + 1} of ${fields.length}: ${currentField?.label}`}
-              </span>
+      {/* Stream Slot Small Rectangles - All on One Line */}
+      <div className="stream-slots-row" role="region" aria-label="Exam Fields Stream Slots">
+        {fields.map((f, i) => {
+          const isCurrent = isRunning && i === currentFieldIdx;
+          const isFilled = currentDraft[f.key] !== undefined && currentDraft[f.key] !== "";
+          const val = isFilled ? currentDraft[f.key] : f.defaultValue || "—";
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span
-                  className={`badge ${
-                    stageStatus === "listening"
-                      ? "badge-danger"
-                      : stageStatus === "speaking"
-                      ? "badge-brand"
-                      : stageStatus === "confirming"
-                      ? "badge-success"
-                      : "badge-neutral"
-                  }`}
-                >
-                  <i
-                    className={`fa-solid ${
-                      stageStatus === "listening"
-                        ? "fa-microphone fa-fade"
-                        : stageStatus === "speaking"
-                        ? "fa-volume-high fa-fade"
-                        : "fa-circle"
-                    }`}
-                  ></i>
-                  {stageStatus === "listening"
-                    ? (recordingMode === "rapid" ? "Stream Listening..." : "Listening for voice...")
-                    : stageStatus === "speaking"
-                    ? "Speaking prompt..."
-                    : stageStatus === "confirming"
-                    ? "Saving & Confirming..."
-                    : "Session Stopped"}
-                </span>
-              </div>
-            </div>
+          return (
+            <div
+              key={f.id}
+              className={`stream-slot-rect ${isCurrent ? "active animate-pulse-glow" : ""} ${isFilled ? "filled" : ""} ${f.autoSkip ? "locked" : ""}`}
+              onClick={() => handleSlotCardClick(f)}
+              title={`Slot #${i + 1}: ${f.label} — click to edit draft`}
+            >
+              <span className="slot-rect-idx">#{i + 1}</span>
+              <span className="slot-rect-label">{f.label}:</span>
+              <span className="slot-rect-val">{val}</span>
 
-            {/* Stage Headline */}
-            <div className="stage-voice-bubble">
-              {recordingMode === "rapid"
-                ? (isRunning
-                    ? `Dictating Student #${records.length + 1}: Saying values with pauses...`
-                    : "Press 'Start Stream' and dictate: ID [pause] default [pause] default [pause] C [pause] 50")
-                : (isRunning
-                    ? currentField?.voicePrompt
-                    : "Press 'Start Voice Assistant' to begin automated hands-free exam entry.")}
-            </div>
-
-            {/* Field Hint */}
-            <div style={{ fontSize: "0.85rem", color: "var(--brand-muted)" }}>
-              {recordingMode === "rapid" ? (
-                <span>
-                  Tip: Speak each value with a brief natural pause (e.g. <code>41 [pause] default [pause] C [pause] 85</code>). Saying <code>sea</code> auto-maps to <strong>Group C</strong>.
-                </span>
-              ) : (
-                <>
-                  {currentField?.type === "id" && currentField.prefix && (
-                    <span>
-                      Prefix rule: <strong>{currentField.prefix}</strong> + {currentField.padDigits} digits. (Say "41" &rarr; <code>{currentField.prefix}0041</code>).
-                    </span>
-                  )}
-                  {currentField?.hasDefault && (
-                    <span>
-                      Default value: <strong>"{currentField.defaultValue}"</strong> (Say "default" or "same" to use).
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Hearing Box */}
-            <div className="stage-hearing-box">
-              <div>
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--brand-muted)", display: "block" }}>
-                  Hearing:
-                </span>
-                <span className="hearing-text">
-                  {hearingText ? `"${hearingText}"` : isRunning ? "Listening..." : "—"}
-                </span>
-              </div>
-
-              {isRunning && (
-                <div style={{ display: "flex", gap: "0.4rem" }}>
-                  {recordingMode === "conversational" && (
-                    <button className="btn btn-outline btn-sm" onClick={askCurrentField} title="Repeat question">
-                      <i className="fa-solid fa-rotate-left"></i> Repeat
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => {
-                      if (recordingMode === "rapid") {
-                        handleRapidStreamInput(currentField?.defaultValue || "skip");
-                      } else {
-                        handleConversationalInput(currentField?.defaultValue || "skip");
-                      }
-                    }}
-                    title="Skip with default"
-                  >
-                    <i className="fa-solid fa-forward-step"></i> Skip Field
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Batch Auto-Skip / Lock Defaults Bar */}
-            {fields.some((f) => f.hasDefault && f.defaultValue) && (
-              <div className="batch-lock-bar">
-                <div className="batch-lock-title">
-                  <i className="fa-solid fa-lock" style={{ color: "var(--brand-primary)" }}></i>
-                  <span>Batch Auto-Skip:</span>
-                </div>
-                <div className="batch-lock-pills">
-                  {fields
-                    .filter((f) => f.hasDefault && f.defaultValue)
-                    .map((f) => (
-                      <button
-                        key={f.id}
-                        type="button"
-                        className={`batch-pill ${f.autoSkip ? "active" : ""}`}
-                        onClick={() => toggleFieldAutoSkip(f.id)}
-                        title={
-                          f.autoSkip
-                            ? `Auto-skipping ${f.label} with "${f.defaultValue}". Click to unlock.`
-                            : `Click to auto-skip & lock ${f.label} with "${f.defaultValue}"`
-                        }
-                      >
-                        <i className={`fa-solid ${f.autoSkip ? "fa-lock" : "fa-lock-open"}`}></i>
-                        <span>{f.label}</span>
-                        {f.autoSkip && <span className="batch-pill-val">({f.defaultValue})</span>}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Live Visual Slots Grid - Tap any box to pause and edit */}
-            <div className="stream-slots-grid">
-              {fields.map((f, i) => {
-                const isCurrent = isRunning && i === currentFieldIdx;
-                const isFilled = currentDraft[f.key] !== undefined && currentDraft[f.key] !== "";
-                const val = currentDraft[f.key] || (f.hasDefault ? f.defaultValue : "—");
-
-                return (
-                  <div
-                    key={f.id}
-                    className={`stream-slot-card ${isCurrent ? "active animate-pulse-glow" : ""} ${isFilled ? "filled" : ""} ${f.autoSkip ? "locked" : ""}`}
-                    onClick={() => handleSlotCardClick(f)}
-                    title="Tap this box to pause voice and edit the student draft"
-                  >
-                    <div className="stream-slot-header">
-                      <div className="stream-slot-label">
-                        #{i + 1} {f.label}
-                      </div>
-                      <div className="stream-slot-icon-badge">
-                        {f.autoSkip ? (
-                          <i className="fa-solid fa-lock" title="Auto-skipped for batch" style={{ color: "var(--brand-secondary)" }}></i>
-                        ) : (
-                          <i className="fa-solid fa-pen-to-square" title="Tap to edit"></i>
-                        )}
-                      </div>
-                    </div>
-                    <div className="stream-slot-value">
-                      {isFilled ? currentDraft[f.key] : isCurrent ? "Listening..." : val}
-                    </div>
-                    <div className="stream-slot-footer">
-                      <span style={{ fontSize: "0.65rem", color: f.autoSkip ? "var(--brand-secondary)" : "var(--brand-muted)" }}>
-                        {f.autoSkip ? "Locked Default" : isFilled ? "Recorded" : isCurrent ? "Active Slot" : "Pending"}
-                      </span>
-                      <span className="stream-slot-hint">
-                        <i className="fa-solid fa-pen"></i> Edit
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Stepper Progress */}
-            <div className="stage-progress-bar" style={{ marginTop: "0.5rem" }}>
-              <div className="stage-progress-fill" style={{ width: `${isRunning ? progressPercent : 0}%` }}></div>
-            </div>
-          </div>
-
-          {/* Session Controller Bar */}
-          <div className="exam-session-banner">
-            <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-              <button
-                className={`btn btn-lg ${isRunning ? "btn-danger" : "btn-primary"}`}
-                onClick={isRunning ? stopSession : startSession}
-                title="Press Spacebar on keyboard to toggle start/pause"
-              >
-                <i className={`fa-solid ${isRunning ? "fa-circle-pause" : "fa-circle-play"}`}></i>
-                <span>
-                  {isRunning
-                    ? "Pause Recording"
-                    : recordingMode === "rapid"
-                    ? "Start Rapid Stream"
-                    : "Start Voice Assistant"}
-                </span>
-                <span
-                  className="keyboard-kbd"
-                  style={{
-                    background: isRunning ? "rgba(255,255,255,0.22)" : "#ffffff",
-                    color: isRunning ? "#ffffff" : "var(--brand-primary)",
-                    borderColor: isRunning ? "rgba(255,255,255,0.4)" : "#cbd5e1"
-                  }}
-                >
-                  Space
-                </span>
-              </button>
-
-              {isRunning && (
+              {f.hasDefault && (
                 <button
-                  className="btn btn-outline btn-lg"
-                  onClick={() => {
-                    if (recordingMode === "rapid") {
-                      handleRapidStreamInput(currentField?.defaultValue || "skip");
-                    } else {
-                      handleConversationalInput(currentField?.defaultValue || "skip");
-                    }
+                  type="button"
+                  className={`slot-lock-toggle ${f.autoSkip ? "locked" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFieldAutoSkip(f.id);
                   }}
+                  title={f.autoSkip ? `Locked default "${f.defaultValue}". Click to unlock.` : `Click to lock default "${f.defaultValue}"`}
                 >
-                  <i className="fa-solid fa-forward-step"></i> Next Field
+                  <i className={`fa-solid ${f.autoSkip ? "fa-lock" : "fa-lock-open"}`}></i>
                 </button>
               )}
-            </div>
 
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button className="btn btn-outline btn-sm" onClick={handleOpenAddField}>
-                <i className="fa-solid fa-plus"></i> Add Custom Field
+              <button
+                type="button"
+                className="slot-edit-prompt-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenEditField(f);
+                }}
+                title={`Configure prompt for ${f.label}`}
+              >
+                <i className="fa-solid fa-pen"></i>
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={handleResetFields} title="Reset to default fields">
-                <i className="fa-solid fa-arrow-rotate-left"></i> Reset
-              </button>
             </div>
-          </div>
-        </div>
-
-        {/* Right Column: Configured Fields Checklist */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          <div className="card-panel">
-            <div className="card-header">
-              <div className="card-title-group">
-                <div className="card-icon-bubble">
-                  <i className="fa-solid fa-list-check"></i>
-                </div>
-                <div>
-                  <h2 className="card-title">Prompt Configuration</h2>
-                  <span className="card-subtitle">{fields.length} questions in cycle</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="card-body" style={{ maxHeight: "420px", overflowY: "auto", padding: "1rem" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-                {fields.map((f, idx) => (
-                  <div
-                    key={f.id}
-                    style={{
-                      border: "1px solid var(--brand-border)",
-                      borderRadius: "var(--radius-md)",
-                      padding: "0.75rem",
-                      background: isRunning && idx === currentFieldIdx ? "var(--brand-accent)" : "#ffffff"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                      <strong style={{ fontSize: "0.85rem", color: "var(--brand-primary)" }}>
-                        #{idx + 1} &bull; {f.label}
-                      </strong>
-                      <div style={{ display: "flex", gap: "0.25rem" }}>
-                        <button
-                          className="btn btn-ghost btn-sm btn-icon"
-                          onClick={() => handleOpenEditField(f)}
-                          title="Edit question settings"
-                        >
-                          <i className="fa-solid fa-pen"></i>
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-sm btn-icon"
-                          onClick={() => handleDeleteField(f.id)}
-                          title="Remove field"
-                          style={{ color: "var(--brand-danger)" }}
-                        >
-                          <i className="fa-solid fa-trash-can"></i>
-                        </button>
-                      </div>
-                    </div>
-
-                    <p style={{ fontSize: "0.775rem", color: "var(--brand-text)", marginBottom: "0.35rem" }}>
-                      Prompt: "{f.voicePrompt}"
-                    </p>
-
-                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", fontSize: "0.7rem" }}>
-                      {f.prefix && (
-                        <span className="badge badge-brand">
-                          Prefix: {f.prefix} ({f.padDigits} digits)
-                        </span>
-                      )}
-                      {f.hasDefault && (
-                        <span className="badge badge-neutral">
-                          Default: "{f.defaultValue}"
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="card-footer">
-              <span style={{ fontSize: "0.75rem", color: "var(--brand-muted)" }}>
-                Commands: say "default", "repeat", "skip", or "stop".
-              </span>
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       {/* Recorded Exam Entries Table */}
@@ -1143,22 +935,29 @@ export default function ExamRecorderPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button className="btn btn-primary btn-sm" onClick={handleExportCSV}>
-              <i className="fa-solid fa-file-csv"></i> Download CSV
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleExportCSV}
+              title="Download CSV spreadsheet"
+            >
+              <i className="fa-solid fa-file-csv"></i>
+              <span className="btn-label-desktop">Download CSV</span>
             </button>
             <button
               className="btn btn-outline btn-sm"
               onClick={() => setClearModalOpen(true)}
               style={{ color: "var(--brand-danger)" }}
               disabled={records.length === 0}
+              title="Clear all recorded entries"
             >
-              <i className="fa-solid fa-trash-can"></i> Clear Table
+              <i className="fa-solid fa-trash-can"></i>
+              <span className="btn-label-desktop">Clear Table</span>
             </button>
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
+        <div className="table-scroll-container" style={{ overflowX: "auto" }}>
           {records.length === 0 ? (
             <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--brand-muted)" }}>
               <i className="fa-solid fa-clipboard-user" style={{ fontSize: "2rem", color: "var(--brand-muted-light)", marginBottom: "0.75rem" }}></i>

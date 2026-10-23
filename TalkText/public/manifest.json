@@ -1,0 +1,53 @@
+{
+  "name": "TalkText Studio — Speech & Audio Dictation",
+  "short_name": "TalkText",
+  "description": "High-speed Speech-to-Text dictation with voice rules and macro triggers, alongside programmable Text-to-Speech synthesis.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#1d3d8f",
+  "categories": [
+    "productivity",
+    "utilities",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Rapid Stream Dictation",
+      "short_name": "Rapid Stream",
+      "description": "Continuous batch voice entry",
+      "url": "/",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Speech to Text",
+      "short_name": "STT Rules",
+      "description": "Transcribe with custom voice rules",
+      "url": "/stt",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Text to Speech",
+      "short_name": "TTS Studio",
+      "description": "Synthesize speech with micro-pauses",
+      "url": "/tts",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}
