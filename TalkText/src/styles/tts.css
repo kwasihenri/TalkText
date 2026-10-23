@@ -50,10 +50,10 @@
 .tts-editor-box {
   width: 100%;
   min-height: 240px;
-  padding: 1.15rem;
+  padding: 0.9rem 1.15rem;
   font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.75;
+  font-size: 0.975rem;
+  line-height: 1.45;
   color: var(--brand-text);
   border: 1px solid var(--brand-border);
   border-radius: var(--radius-md);
@@ -134,8 +134,8 @@
   background: #ffffff;
   border: 1px solid var(--brand-border);
   border-radius: var(--radius-md);
-  font-size: 1.05rem;
-  line-height: 1.85;
+  font-size: 1rem;
+  line-height: 1.5;
   color: var(--brand-text);
   min-height: 90px;
   box-shadow: var(--shadow-xs);

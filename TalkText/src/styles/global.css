@@ -283,7 +283,7 @@ code, kbd, samp, pre {
 .textarea {
   min-height: 120px;
   resize: vertical;
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 /* Micro-animations */
