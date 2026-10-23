@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 TalkText/node_modules/
+artifacts
 
 # Production builds
 dist/

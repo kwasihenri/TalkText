@@ -217,7 +217,7 @@ export default function TextToSpeechPage() {
       {/* Main Studio Grid */}
       <div className="studio-layout full-height-studio">
         {/* Left Column: Script Editor & Playback */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <div className="tts-main-col" style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: 0, width: "100%", maxWidth: "100%" }}>
           {/* Script Editor Panel */}
           <div className="card-panel">
             <div className="card-header">
@@ -231,7 +231,7 @@ export default function TextToSpeechPage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
                 <button
                   className="btn btn-outline btn-sm"
                   onClick={() => {
@@ -247,12 +247,13 @@ export default function TextToSpeechPage() {
                   onClick={() => setSaveModalOpen(true)}
                   title="Save script preset"
                 >
-                  <i className="fa-solid fa-bookmark"></i> Save Preset
+                  <i className="fa-solid fa-bookmark"></i>
+                  <span className="btn-text-mobile-hide"> Save Preset</span>
                 </button>
               </div>
             </div>
 
-            <div className="card-body" style={{ padding: "1.25rem" }}>
+            <div className="card-body">
               {/* Dynamic Tag Insertion Toolbar */}
               <div className="tts-tag-toolbar">
                 <span className="tag-toolbar-label">
@@ -426,7 +427,7 @@ export default function TextToSpeechPage() {
         </div>
 
         {/* Right Column: Voice Selection, Parameter Sliders & Presets */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <div className="tts-side-col" style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: 0, width: "100%", maxWidth: "100%" }}>
           {/* Voice Tuning Panel */}
           <div className="card-panel">
             <div className="card-header">

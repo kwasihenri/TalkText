@@ -10,6 +10,10 @@
   border-radius: var(--radius-md);
   margin-bottom: 0.85rem;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .tag-toolbar-label {
@@ -51,6 +55,8 @@
 
 .tts-editor-box {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   flex: 1;
   min-height: 180px;
   padding: 0.9rem 1.15rem;
@@ -84,6 +90,10 @@
   border: 1px solid var(--brand-border);
   margin-top: 1.25rem;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .playback-buttons {
@@ -144,6 +154,12 @@
   color: var(--brand-text);
   min-height: 80px;
   box-shadow: var(--shadow-xs);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .karaoke-token {
@@ -280,6 +296,10 @@
     padding: 0.5rem 0.65rem;
     gap: 0.35rem;
     border-radius: var(--radius-md);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .tag-insert-btn {
@@ -289,48 +309,74 @@
   }
 
   .tts-editor-box {
-    min-height: 180px;
-    padding: 0.85rem 1rem;
+    min-height: 150px;
+    padding: 0.75rem 0.85rem;
     font-size: 0.95rem;
     border-radius: var(--radius-md);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .tts-playback-bar {
-    padding: 0.85rem 1rem;
-    gap: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    gap: 0.65rem;
     flex-direction: column;
     align-items: stretch;
     border-radius: var(--radius-md);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin-top: 0.85rem;
   }
 
   .playback-buttons {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     display: flex;
     gap: 0.5rem;
   }
 
   .btn-play-hero {
     flex: 1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     justify-content: center;
-    min-height: 48px;
-    font-size: 1rem;
+    min-height: 44px;
+    font-size: 0.925rem;
+    padding: 0.65rem 0.85rem;
+    box-sizing: border-box;
+    white-space: nowrap;
   }
 
   .tts-playback-bar > div:last-child {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: 0.5rem;
+    box-sizing: border-box;
   }
 
   .tts-playback-bar > div:last-child .btn {
-    flex: 1;
+    flex: initial;
   }
 
   .karaoke-display {
-    padding: 0.85rem 1rem;
-    font-size: 0.95rem;
-    min-height: 70px;
+    padding: 0.75rem 0.85rem;
+    font-size: 0.9rem;
+    min-height: 60px;
+    margin-top: 0.85rem;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .preset-grid {

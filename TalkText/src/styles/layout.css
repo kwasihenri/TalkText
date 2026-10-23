@@ -304,6 +304,8 @@ html, body {
   height: 100%;
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -313,16 +315,20 @@ html, body {
 .full-height-studio {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 1rem;
   overflow: hidden;
 }
 
 @media (max-width: 1080px) {
   .full-height-studio {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
   }
 }
@@ -330,16 +336,20 @@ html, body {
 .settings-grid {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 1rem;
   overflow: hidden;
 }
 
 @media (max-width: 1080px) {
   .settings-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
   }
 }
@@ -347,6 +357,9 @@ html, body {
 .rules-main-card {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -355,21 +368,28 @@ html, body {
 .rules-main-card .card-body {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 0.75rem;
+  box-sizing: border-box;
 }
 
 .studio-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 1.25rem;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 1024px) {
   .studio-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: hidden;
   }
 }
 
@@ -381,6 +401,10 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   transition: border-color var(--transition-fast);
 }
 
@@ -432,6 +456,10 @@ html, body {
 
 .card-body {
   padding: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .card-footer {
@@ -441,19 +469,23 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 @media (max-width: 640px) {
   .card-header {
-    padding: 0.85rem 1rem;
+    padding: 0.75rem 0.85rem;
   }
 
   .card-body {
-    padding: 1rem;
+    padding: 0.75rem 0.85rem;
   }
 
   .card-footer {
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 0.85rem;
   }
 }
 
