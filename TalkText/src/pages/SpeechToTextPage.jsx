@@ -221,7 +221,7 @@ export default function SpeechToTextPage() {
     }
   };
 
-  const stopListening = useCallback(() => {
+  const stopListening = useCallback((notify = false) => {
     setIsRecording(false);
     clearInterval(timerIntervalRef.current);
     if (recognitionRef.current) {
@@ -231,18 +231,20 @@ export default function SpeechToTextPage() {
     }
     stopVisualizer();
     setInterimText("");
-    toast.info("Dictation paused.");
+    if (notify) {
+      toast.info("Dictation paused.");
+    }
   }, [toast]);
 
   useEffect(() => {
     return () => {
-      stopListening();
+      stopListening(false);
     };
   }, [stopListening]);
 
   const handleToggleRecord = () => {
     if (isRecording) {
-      stopListening();
+      stopListening(true);
     } else {
       startListening();
     }
