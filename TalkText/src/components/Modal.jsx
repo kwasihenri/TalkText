@@ -8,11 +8,11 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
       }
     }
     if (isOpen) {
-      document.body.style.overflow = "hidden";
+      // document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
     }
     return () => {
-      document.body.style.overflow = "";
+      // document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);

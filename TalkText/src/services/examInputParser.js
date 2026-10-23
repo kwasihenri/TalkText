@@ -317,43 +317,49 @@ export function resolveLetterOrGroup(spokenText, field) {
   const clean = cleanSpoken(spokenText);
   if (!clean) return null;
 
+  const isClassField =
+    (field.key && field.key.toLowerCase().includes("class")) ||
+    (field.label && field.label.toLowerCase().includes("class")) ||
+    (field.defaultValue && field.defaultValue.toLowerCase().startsWith("class"));
+
   const isGroupField =
     (field.key && field.key.toLowerCase().includes("group")) ||
     (field.label && field.label.toLowerCase().includes("group")) ||
     (field.defaultValue && field.defaultValue.toLowerCase().startsWith("group"));
 
-  const groupMatch = clean.match(/^group\s+([a-z]+)$/i);
-  if (groupMatch) {
-    const letterKey = groupMatch[1].toLowerCase();
-    const mappedLetter = PHONETIC_LETTER_MAP[letterKey] || groupMatch[1].toUpperCase();
-    return `Group ${mappedLetter}`;
+  const prefix = isClassField ? "Class" : "Group";
+  const defaultFallback = field.defaultValue || `${prefix} A`;
+
+  if (!isGroupField && !isClassField) return null;
+
+  const classOrGroupMatch = clean.match(/^(?:group|class)\s+([a-z]+)$/i);
+  if (classOrGroupMatch) {
+    const letterKey = classOrGroupMatch[1].toLowerCase();
+    const mappedLetter = PHONETIC_LETTER_MAP[letterKey] || classOrGroupMatch[1].toUpperCase();
+    return `${prefix} ${mappedLetter}`;
   }
 
   if (PHONETIC_LETTER_MAP[clean]) {
     const letter = PHONETIC_LETTER_MAP[clean];
-    return isGroupField ? `Group ${letter}` : letter;
+    return `${prefix} ${letter}`;
   }
 
-  if (isGroupField) {
-    if (clean.includes("sea") || clean.includes("see") || clean === "c" || clean === "charlie") {
-      return "Group C";
-    }
-    if (clean.includes("bee") || clean.includes("be") || clean === "b" || clean === "bravo") {
-      return "Group B";
-    }
-    if (clean.includes("ay") || clean === "a" || clean === "alpha") {
-      return "Group A";
-    }
-    if (clean.includes("dee") || clean === "d" || clean === "delta") {
-      return "Group D";
-    }
-    if (isSpokenDefault(clean, field)) {
-      return field.defaultValue || "Group A";
-    }
-    return field.defaultValue || "Group A";
+  if (clean.includes("sea") || clean.includes("see") || clean === "c" || clean === "charlie") {
+    return `${prefix} C`;
   }
-
-  return null;
+  if (clean.includes("bee") || clean.includes("be") || clean === "b" || clean === "bravo") {
+    return `${prefix} B`;
+  }
+  if (clean.includes("ay") || clean === "a" || clean === "alpha") {
+    return `${prefix} A`;
+  }
+  if (clean.includes("dee") || clean === "d" || clean === "delta") {
+    return `${prefix} D`;
+  }
+  if (isSpokenDefault(clean, field)) {
+    return defaultFallback;
+  }
+  return defaultFallback;
 }
 
 export function resolveSession(spokenText, field) {
@@ -541,14 +547,14 @@ export function parseRapidStreamTokens(rawSpoken, currentFields, currentIdx) {
 
       for (let aIdx = 0; aIdx < activeRemainingFields.length && wIdx < words.length; aIdx++) {
         const field = activeRemainingFields[aIdx];
-        const isGroup =
-          (field.key && field.key.toLowerCase().includes("group")) ||
-          (field.label && field.label.toLowerCase().includes("group"));
+        const isGroupOrClass =
+          (field.key && (field.key.toLowerCase().includes("group") || field.key.toLowerCase().includes("class"))) ||
+          (field.label && (field.label.toLowerCase().includes("group") || field.label.toLowerCase().includes("class")));
         const isSession =
           (field.key && field.key.toLowerCase().includes("session")) ||
           (field.label && field.label.toLowerCase().includes("session"));
 
-        if (isGroup && words[wIdx] === "group" && wIdx + 1 < words.length) {
+        if (isGroupOrClass && (words[wIdx] === "group" || words[wIdx] === "class") && wIdx + 1 < words.length) {
           tokens.push(`${words[wIdx]} ${words[wIdx + 1]}`);
           wIdx += 2;
         } else if (

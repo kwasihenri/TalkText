@@ -510,8 +510,10 @@ export default function ExamRecorderPage() {
 
     const updatedDraft = { ...currentDraftRef.current };
     for (const f of updated) {
-      if (f.autoSkip && f.defaultValue && !updatedDraft[f.key]) {
+      if (f.autoSkip && f.defaultValue) {
         updatedDraft[f.key] = f.defaultValue;
+      } else if (!f.autoSkip && updatedDraft[f.key] === f.defaultValue) {
+        delete updatedDraft[f.key];
       }
     }
     setCurrentDraft(updatedDraft);
@@ -557,6 +559,45 @@ export default function ExamRecorderPage() {
       });
     }
   };
+
+  useEffect(() => {
+    function handleGlobalKeyDown(e) {
+      if (e.code === "Space" || e.key === " ") {
+        const activeEl = document.activeElement;
+        const isInputField =
+          activeEl &&
+          (activeEl.tagName === "INPUT" ||
+            activeEl.tagName === "TEXTAREA" ||
+            activeEl.tagName === "SELECT" ||
+            activeEl.isContentEditable);
+
+        if (isInputField) return;
+
+        if (
+          fieldModalOpen ||
+          clearModalOpen ||
+          editRecordModalOpen ||
+          draftEditModalOpen
+        ) {
+          return;
+        }
+
+        e.preventDefault();
+        if (isRunningRef.current) {
+          stopSession();
+          toast.info("Recording paused (Spacebar).");
+        } else {
+          startSession();
+          toast.info("Recording started (Spacebar).");
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [fieldModalOpen, clearModalOpen, editRecordModalOpen, draftEditModalOpen]);
 
   useEffect(() => {
     return () => {
@@ -960,14 +1001,25 @@ export default function ExamRecorderPage() {
               <button
                 className={`btn btn-lg ${isRunning ? "btn-danger" : "btn-primary"}`}
                 onClick={isRunning ? stopSession : startSession}
+                title="Press Spacebar on keyboard to toggle start/pause"
               >
                 <i className={`fa-solid ${isRunning ? "fa-circle-pause" : "fa-circle-play"}`}></i>
                 <span>
                   {isRunning
-                    ? "Pause Assistant"
+                    ? "Pause Recording"
                     : recordingMode === "rapid"
                     ? "Start Rapid Stream"
                     : "Start Voice Assistant"}
+                </span>
+                <span
+                  className="keyboard-kbd"
+                  style={{
+                    background: isRunning ? "rgba(255,255,255,0.22)" : "#ffffff",
+                    color: isRunning ? "#ffffff" : "var(--brand-primary)",
+                    borderColor: isRunning ? "rgba(255,255,255,0.4)" : "#cbd5e1"
+                  }}
+                >
+                  Space
                 </span>
               </button>
 
@@ -1357,6 +1409,7 @@ export default function ExamRecorderPage() {
         <form onSubmit={handleSaveRecordEdit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {fields.map((f) => {
             const isGroup = f.key?.toLowerCase().includes("group") || f.label?.toLowerCase().includes("group");
+            const isClass = f.key?.toLowerCase().includes("class") || f.label?.toLowerCase().includes("class");
             const isSession = f.key?.toLowerCase().includes("session") || f.label?.toLowerCase().includes("session");
             return (
               <div key={f.id} className="form-group">
@@ -1378,6 +1431,24 @@ export default function ExamRecorderPage() {
                           onClick={() => setEditRecordForm((prev) => ({ ...prev, [f.key]: grp }))}
                         >
                           {grp}
+                        </button>
+                      ))
+                    )}
+                    {isClass && (
+                      ["Class A", "Class B", "Class C"].map((cls) => (
+                        <button
+                          key={cls}
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            padding: "0.15rem 0.45rem",
+                            fontSize: "0.725rem",
+                            background: editRecordForm[f.key] === cls ? "var(--brand-accent)" : "#ffffff",
+                            borderColor: editRecordForm[f.key] === cls ? "var(--brand-primary)" : "var(--brand-border)"
+                          }}
+                          onClick={() => setEditRecordForm((prev) => ({ ...prev, [f.key]: cls }))}
+                        >
+                          {cls}
                         </button>
                       ))
                     )}
@@ -1446,17 +1517,17 @@ export default function ExamRecorderPage() {
             </button>
             <button
               type="button"
-              className="btn btn-outline btn-sm"
+              className="btn btn-primary btn-sm"
               onClick={() => handleSaveDraftEdit(false)}
             >
-              Save Draft Only
+              Save Changes
             </button>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="btn btn-outline btn-sm"
               onClick={() => handleSaveDraftEdit(true)}
             >
-              <i className="fa-solid fa-play"></i> Save & Resume Voice
+              <i className="fa-solid fa-play"></i> Save & Resume
             </button>
           </>
         }
@@ -1468,12 +1539,13 @@ export default function ExamRecorderPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            handleSaveDraftEdit(true);
+            handleSaveDraftEdit(false);
           }}
           style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
         >
           {fields.map((f) => {
             const isGroup = f.key?.toLowerCase().includes("group") || f.label?.toLowerCase().includes("group");
+            const isClass = f.key?.toLowerCase().includes("class") || f.label?.toLowerCase().includes("class");
             const isSession = f.key?.toLowerCase().includes("session") || f.label?.toLowerCase().includes("session");
             const isFocusedTarget = draftEditFocusKey === f.key;
             return (
@@ -1507,6 +1579,24 @@ export default function ExamRecorderPage() {
                           onClick={() => setDraftEditForm((prev) => ({ ...prev, [f.key]: grp }))}
                         >
                           {grp}
+                        </button>
+                      ))
+                    )}
+                    {isClass && (
+                      ["Class A", "Class B", "Class C"].map((cls) => (
+                        <button
+                          key={cls}
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            padding: "0.15rem 0.45rem",
+                            fontSize: "0.725rem",
+                            background: draftEditForm[f.key] === cls ? "var(--brand-accent)" : "#ffffff",
+                            borderColor: draftEditForm[f.key] === cls ? "var(--brand-primary)" : "var(--brand-border)"
+                          }}
+                          onClick={() => setDraftEditForm((prev) => ({ ...prev, [f.key]: cls }))}
+                        >
+                          {cls}
                         </button>
                       ))
                     )}
