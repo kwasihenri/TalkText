@@ -524,17 +524,23 @@ export function parseRapidStreamTokens(rawSpoken, currentFields, currentIdx) {
 
   let rawChunks = rawSpoken.split(/[,;]+/).map((s) => s.trim()).filter(Boolean);
 
-  if (rawChunks.length === 1 && currentIdx < currentFields.length) {
+  const activeRemainingFields = [];
+  for (let i = currentIdx; i < currentFields.length; i++) {
+    if (!currentFields[i].autoSkip) {
+      activeRemainingFields.push(currentFields[i]);
+    }
+  }
+
+  if (rawChunks.length === 1 && activeRemainingFields.length > 0) {
     const singleChunk = rawChunks[0];
     const words = cleanSpoken(singleChunk).split(" ").filter(Boolean);
-    const remainingCount = currentFields.length - currentIdx;
 
-    if (words.length > 1 && remainingCount > 1) {
+    if (words.length > 1 && activeRemainingFields.length > 1) {
       const tokens = [];
       let wIdx = 0;
 
-      for (let fIdx = currentIdx; fIdx < currentFields.length && wIdx < words.length; fIdx++) {
-        const field = currentFields[fIdx];
+      for (let aIdx = 0; aIdx < activeRemainingFields.length && wIdx < words.length; aIdx++) {
+        const field = activeRemainingFields[aIdx];
         const isGroup =
           (field.key && field.key.toLowerCase().includes("group")) ||
           (field.label && field.label.toLowerCase().includes("group"));
@@ -568,7 +574,19 @@ export function parseRapidStreamTokens(rawSpoken, currentFields, currentIdx) {
   const updates = {};
   let consumedIdx = currentIdx;
 
+  while (consumedIdx < currentFields.length && currentFields[consumedIdx].autoSkip) {
+    const skippedField = currentFields[consumedIdx];
+    updates[skippedField.key] = skippedField.defaultValue || "";
+    consumedIdx++;
+  }
+
   for (const chunk of rawChunks) {
+    while (consumedIdx < currentFields.length && currentFields[consumedIdx].autoSkip) {
+      const skippedField = currentFields[consumedIdx];
+      updates[skippedField.key] = skippedField.defaultValue || "";
+      consumedIdx++;
+    }
+
     if (consumedIdx >= currentFields.length) break;
     const field = currentFields[consumedIdx];
     const { value, action } = parseExamInput(chunk, field);
@@ -591,6 +609,12 @@ export function parseRapidStreamTokens(rawSpoken, currentFields, currentIdx) {
 
     updates[field.key] = value || (field.hasDefault ? field.defaultValue : "");
     consumedIdx++;
+
+    while (consumedIdx < currentFields.length && currentFields[consumedIdx].autoSkip) {
+      const skippedField = currentFields[consumedIdx];
+      updates[skippedField.key] = skippedField.defaultValue || "";
+      consumedIdx++;
+    }
   }
 
   return {

@@ -173,6 +173,7 @@ const DEFAULT_EXAM_FIELDS = [
     padDigits: 4,
     hasDefault: false,
     defaultValue: "",
+    autoSkip: false,
     type: "id",
     required: true
   },
@@ -185,6 +186,7 @@ const DEFAULT_EXAM_FIELDS = [
     padDigits: 0,
     hasDefault: true,
     defaultValue: "BSc Computer Science",
+    autoSkip: false,
     type: "text",
     required: false
   },
@@ -197,6 +199,7 @@ const DEFAULT_EXAM_FIELDS = [
     padDigits: 0,
     hasDefault: true,
     defaultValue: "Biometric Systems",
+    autoSkip: false,
     type: "text",
     required: false
   },
@@ -209,6 +212,7 @@ const DEFAULT_EXAM_FIELDS = [
     padDigits: 0,
     hasDefault: true,
     defaultValue: "Group A",
+    autoSkip: false,
     type: "text",
     required: false
   },
@@ -221,6 +225,7 @@ const DEFAULT_EXAM_FIELDS = [
     padDigits: 0,
     hasDefault: true,
     defaultValue: "Morning Session",
+    autoSkip: false,
     type: "text",
     required: false
   },
@@ -233,6 +238,7 @@ const DEFAULT_EXAM_FIELDS = [
     padDigits: 0,
     hasDefault: false,
     defaultValue: "",
+    autoSkip: false,
     type: "number",
     required: true
   }

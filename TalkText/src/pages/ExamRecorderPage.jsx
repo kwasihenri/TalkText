@@ -23,6 +23,14 @@ function playChime() {
   } catch {}
 }
 
+function createStudentRecord(finalDraft) {
+  return {
+    id: `rec-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    ...finalDraft
+  };
+}
+
 export default function ExamRecorderPage() {
   const toast = useToast();
 
@@ -45,6 +53,10 @@ export default function ExamRecorderPage() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [editRecordForm, setEditRecordForm] = useState({});
 
+  const [draftEditModalOpen, setDraftEditModalOpen] = useState(false);
+  const [draftEditForm, setDraftEditForm] = useState({});
+  const [draftEditFocusKey, setDraftEditFocusKey] = useState("");
+
   const [fieldForm, setFieldForm] = useState({
     label: "",
     voicePrompt: "",
@@ -52,8 +64,28 @@ export default function ExamRecorderPage() {
     prefix: "",
     padDigits: 0,
     hasDefault: false,
-    defaultValue: ""
+    defaultValue: "",
+    autoSkip: false
   });
+
+  const getInitialDraft = useCallback((fieldsList) => {
+    const draft = {};
+    for (const f of fieldsList) {
+      if (f.autoSkip && f.hasDefault && f.defaultValue) {
+        draft[f.key] = f.defaultValue;
+      }
+    }
+    return draft;
+  }, []);
+
+  const getNextActiveIndex = useCallback((fromIdx, fieldsList) => {
+    for (let i = fromIdx; i < fieldsList.length; i++) {
+      if (!fieldsList[i].autoSkip) {
+        return i;
+      }
+    }
+    return fieldsList.length;
+  }, []);
 
   const recognitionRef = useRef(null);
   const isRunningRef = useRef(false);
@@ -132,11 +164,7 @@ export default function ExamRecorderPage() {
   }
 
   function commitStudentRecord(finalDraft, isStream = false) {
-    const newRecord = {
-      id: `rec-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      ...finalDraft
-    };
+    const newRecord = createStudentRecord(finalDraft);
 
     setRecords((prev) => {
       const updated = [newRecord, ...prev];
@@ -150,21 +178,25 @@ export default function ExamRecorderPage() {
     playChime();
 
     if (isStream) {
-      setCurrentDraft({});
-      setCurrentFieldIdx(0);
-      currentDraftRef.current = {};
-      currentFieldIdxRef.current = 0;
+      const freshDraft = getInitialDraft(fieldsRef.current);
+      const nextIdx = getNextActiveIndex(0, fieldsRef.current);
+      setCurrentDraft(freshDraft);
+      setCurrentFieldIdx(nextIdx >= fieldsRef.current.length ? 0 : nextIdx);
+      currentDraftRef.current = freshDraft;
+      currentFieldIdxRef.current = nextIdx >= fieldsRef.current.length ? 0 : nextIdx;
     } else {
       setStageStatus("confirming");
       const recapText = `Recorded ${studentIdVal}. Marks ${marksVal}. Next person.`;
       speak(recapText, () => {
         if (isRunningRef.current) {
-          setCurrentDraft({});
-          setCurrentFieldIdx(0);
-          currentDraftRef.current = {};
-          currentFieldIdxRef.current = 0;
+          const freshDraft = getInitialDraft(fieldsRef.current);
+          const nextIdx = getNextActiveIndex(0, fieldsRef.current);
+          setCurrentDraft(freshDraft);
+          setCurrentFieldIdx(nextIdx >= fieldsRef.current.length ? 0 : nextIdx);
+          currentDraftRef.current = freshDraft;
+          currentFieldIdxRef.current = nextIdx >= fieldsRef.current.length ? 0 : nextIdx;
           setTimeout(() => {
-            askFieldAtIndex(0);
+            askFieldAtIndex(nextIdx >= fieldsRef.current.length ? 0 : nextIdx);
           }, 700);
         }
       });
@@ -212,8 +244,12 @@ export default function ExamRecorderPage() {
     }
 
     if (action === "undo") {
-      if (idx > 0) {
-        setCurrentFieldIdx(idx - 1);
+      let prevIdx = idx - 1;
+      while (prevIdx >= 0 && currentFields[prevIdx].autoSkip) {
+        prevIdx--;
+      }
+      if (prevIdx >= 0) {
+        setCurrentFieldIdx(prevIdx);
         setTimeout(() => askCurrentField(), 300);
       } else {
         toast.info("Already at first question.");
@@ -228,10 +264,11 @@ export default function ExamRecorderPage() {
     };
     setCurrentDraft(updatedDraft);
 
-    if (idx + 1 < currentFields.length) {
-      setCurrentFieldIdx(idx + 1);
+    const nextIdx = getNextActiveIndex(idx + 1, currentFields);
+    if (nextIdx < currentFields.length) {
+      setCurrentFieldIdx(nextIdx);
       setTimeout(() => {
-        askFieldAtIndex(idx + 1);
+        askFieldAtIndex(nextIdx);
       }, 400);
     } else {
       commitStudentRecord(updatedDraft, false);
@@ -400,16 +437,109 @@ export default function ExamRecorderPage() {
     }
   }
 
+  const handleSlotCardClick = (field) => {
+    if (isRunningRef.current) {
+      stopSession();
+      toast.info(`Voice input paused to edit ${field.label}.`);
+    }
+
+    const formValues = { ...currentDraftRef.current };
+    for (const f of fieldsRef.current) {
+      if (formValues[f.key] === undefined) {
+        formValues[f.key] = f.autoSkip && f.defaultValue ? f.defaultValue : (f.hasDefault ? f.defaultValue : "");
+      }
+    }
+
+    setDraftEditForm(formValues);
+    setDraftEditFocusKey(field.key);
+    setDraftEditModalOpen(true);
+  };
+
+  const handleSaveDraftEdit = (shouldResumeVoice = false) => {
+    const updatedDraft = { ...draftEditForm };
+    setCurrentDraft(updatedDraft);
+    currentDraftRef.current = updatedDraft;
+    setDraftEditModalOpen(false);
+
+    const allFilled = fields.every((f) => {
+      const val = updatedDraft[f.key];
+      return val !== undefined && val !== "";
+    });
+
+    if (allFilled) {
+      commitStudentRecord(updatedDraft, recordingMode === "rapid");
+      toast.success("Draft completed and record saved!");
+      return;
+    }
+
+    let nextIdx = 0;
+    for (let i = 0; i < fields.length; i++) {
+      const f = fields[i];
+      if (!updatedDraft[f.key] && !f.autoSkip) {
+        nextIdx = i;
+        break;
+      }
+    }
+    setCurrentFieldIdx(nextIdx);
+    currentFieldIdxRef.current = nextIdx;
+
+    toast.success("Draft updated!");
+
+    if (shouldResumeVoice) {
+      setIsRunning(true);
+      isRunningRef.current = true;
+      if (recordingMode === "rapid") {
+        setStageStatus("listening");
+        startRapidStreamRecognition();
+      } else {
+        askFieldAtIndex(nextIdx);
+      }
+    }
+  };
+
+  const toggleFieldAutoSkip = (fieldId) => {
+    const updated = fields.map((f) => {
+      if (f.id === fieldId) {
+        return { ...f, autoSkip: !f.autoSkip };
+      }
+      return f;
+    });
+    setFields(updated);
+    fieldsRef.current = updated;
+    storage.saveExamFields(updated);
+
+    const updatedDraft = { ...currentDraftRef.current };
+    for (const f of updated) {
+      if (f.autoSkip && f.defaultValue && !updatedDraft[f.key]) {
+        updatedDraft[f.key] = f.defaultValue;
+      }
+    }
+    setCurrentDraft(updatedDraft);
+    currentDraftRef.current = updatedDraft;
+
+    const targetField = updated.find((f) => f.id === fieldId);
+    if (targetField?.autoSkip) {
+      toast.success(`Locked ${targetField.label} to "${targetField.defaultValue}" for this batch.`);
+    } else {
+      toast.info(`Unlocked ${targetField?.label}. Will ask during voice input.`);
+    }
+  };
+
   const startSession = () => {
     if (fields.length === 0) {
       toast.error("Please add at least one field to start recording.");
       return;
     }
+
+    const initDraft = getInitialDraft(fields);
+    const startIdx = getNextActiveIndex(0, fields);
+
     setIsRunning(true);
-    setCurrentFieldIdx(0);
-    setCurrentDraft({});
-    currentFieldIdxRef.current = 0;
-    currentDraftRef.current = {};
+    isRunningRef.current = true;
+    setCurrentFieldIdx(startIdx >= fields.length ? 0 : startIdx);
+    setCurrentDraft(initDraft);
+    currentFieldIdxRef.current = startIdx >= fields.length ? 0 : startIdx;
+    currentDraftRef.current = initDraft;
 
     if (recordingMode === "rapid") {
       setStageStatus("listening");
@@ -418,7 +548,9 @@ export default function ExamRecorderPage() {
     } else {
       setStageStatus("speaking");
       toast.info("Exam recording assistant started.");
-      speak("Exam recording started. " + fields[0].voicePrompt, () => {
+      const activeField = fields[startIdx] || fields[0];
+      const promptToSpeak = activeField.voicePrompt || `Please say the ${activeField.label}`;
+      speak("Exam recording started. " + promptToSpeak, () => {
         if (isRunningRef.current) {
           listenForConversationalInput();
         }
@@ -441,7 +573,8 @@ export default function ExamRecorderPage() {
       prefix: "",
       padDigits: 0,
       hasDefault: false,
-      defaultValue: ""
+      defaultValue: "",
+      autoSkip: false
     });
     setFieldModalOpen(true);
   };
@@ -455,7 +588,8 @@ export default function ExamRecorderPage() {
       prefix: f.prefix || "",
       padDigits: f.padDigits || 0,
       hasDefault: !!f.hasDefault,
-      defaultValue: f.defaultValue || ""
+      defaultValue: f.defaultValue || "",
+      autoSkip: !!f.autoSkip
     });
     setFieldModalOpen(true);
   };
@@ -480,7 +614,8 @@ export default function ExamRecorderPage() {
       prefix: fieldForm.prefix.trim(),
       padDigits: parseInt(fieldForm.padDigits, 10) || 0,
       hasDefault: fieldForm.hasDefault,
-      defaultValue: fieldForm.defaultValue.trim()
+      defaultValue: fieldForm.defaultValue.trim(),
+      autoSkip: fieldForm.hasDefault ? Boolean(fieldForm.autoSkip) : false
     };
 
     let updated;
@@ -740,7 +875,38 @@ export default function ExamRecorderPage() {
               )}
             </div>
 
-            {/* Live Visual Slots Grid */}
+            {/* Batch Auto-Skip / Lock Defaults Bar */}
+            {fields.some((f) => f.hasDefault && f.defaultValue) && (
+              <div className="batch-lock-bar">
+                <div className="batch-lock-title">
+                  <i className="fa-solid fa-lock" style={{ color: "var(--brand-primary)" }}></i>
+                  <span>Batch Auto-Skip:</span>
+                </div>
+                <div className="batch-lock-pills">
+                  {fields
+                    .filter((f) => f.hasDefault && f.defaultValue)
+                    .map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        className={`batch-pill ${f.autoSkip ? "active" : ""}`}
+                        onClick={() => toggleFieldAutoSkip(f.id)}
+                        title={
+                          f.autoSkip
+                            ? `Auto-skipping ${f.label} with "${f.defaultValue}". Click to unlock.`
+                            : `Click to auto-skip & lock ${f.label} with "${f.defaultValue}"`
+                        }
+                      >
+                        <i className={`fa-solid ${f.autoSkip ? "fa-lock" : "fa-lock-open"}`}></i>
+                        <span>{f.label}</span>
+                        {f.autoSkip && <span className="batch-pill-val">({f.defaultValue})</span>}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Live Visual Slots Grid - Tap any box to pause and edit */}
             <div className="stream-slots-grid">
               {fields.map((f, i) => {
                 const isCurrent = isRunning && i === currentFieldIdx;
@@ -750,13 +916,32 @@ export default function ExamRecorderPage() {
                 return (
                   <div
                     key={f.id}
-                    className={`stream-slot-card ${isCurrent ? "active animate-pulse-glow" : ""} ${isFilled ? "filled" : ""}`}
+                    className={`stream-slot-card ${isCurrent ? "active animate-pulse-glow" : ""} ${isFilled ? "filled" : ""} ${f.autoSkip ? "locked" : ""}`}
+                    onClick={() => handleSlotCardClick(f)}
+                    title="Tap this box to pause voice and edit the student draft"
                   >
-                    <div className="stream-slot-label">
-                      #{i + 1} {f.label}
+                    <div className="stream-slot-header">
+                      <div className="stream-slot-label">
+                        #{i + 1} {f.label}
+                      </div>
+                      <div className="stream-slot-icon-badge">
+                        {f.autoSkip ? (
+                          <i className="fa-solid fa-lock" title="Auto-skipped for batch" style={{ color: "var(--brand-secondary)" }}></i>
+                        ) : (
+                          <i className="fa-solid fa-pen-to-square" title="Tap to edit"></i>
+                        )}
+                      </div>
                     </div>
                     <div className="stream-slot-value">
                       {isFilled ? currentDraft[f.key] : isCurrent ? "Listening..." : val}
+                    </div>
+                    <div className="stream-slot-footer">
+                      <span style={{ fontSize: "0.65rem", color: f.autoSkip ? "var(--brand-secondary)" : "var(--brand-muted)" }}>
+                        {f.autoSkip ? "Locked Default" : isFilled ? "Recorded" : isCurrent ? "Active Slot" : "Pending"}
+                      </span>
+                      <span className="stream-slot-hint">
+                        <i className="fa-solid fa-pen"></i> Edit
+                      </span>
                     </div>
                   </div>
                 );
@@ -1084,15 +1269,27 @@ export default function ExamRecorderPage() {
             </label>
 
             {fieldForm.hasDefault && (
-              <div className="form-group" style={{ marginTop: "0.5rem" }}>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g. BSc Computer Science, Group A, Morning Session"
-                  value={fieldForm.defaultValue}
-                  onChange={(e) => setFieldForm({ ...fieldForm, defaultValue: e.target.value })}
-                />
-              </div>
+              <>
+                <div className="form-group" style={{ marginTop: "0.5rem" }}>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g. BSc Computer Science, Group A, Morning Session"
+                    value={fieldForm.defaultValue}
+                    onChange={(e) => setFieldForm({ ...fieldForm, defaultValue: e.target.value })}
+                  />
+                </div>
+                <div className="form-group" style={{ marginTop: "0.5rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.85rem", color: "var(--brand-primary)" }}>
+                    <input
+                      type="checkbox"
+                      checked={fieldForm.autoSkip || false}
+                      onChange={(e) => setFieldForm({ ...fieldForm, autoSkip: e.target.checked })}
+                    />
+                    <span><strong>Auto-skip & lock with default</strong> during batch entry (skip asking every student)</span>
+                  </label>
+                </div>
+              </>
             )}
           </div>
         </form>
@@ -1225,6 +1422,136 @@ export default function ExamRecorderPage() {
                       [f.key]: e.target.value
                     }))
                   }
+                  placeholder={`Enter ${f.label}`}
+                />
+              </div>
+            );
+          })}
+        </form>
+      </Modal>
+
+      {/* Modal: Tap-to-Edit Current Student Draft */}
+      <Modal
+        isOpen={draftEditModalOpen}
+        onClose={() => setDraftEditModalOpen(false)}
+        title="Edit Current Student Draft"
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setDraftEditModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => handleSaveDraftEdit(false)}
+            >
+              Save Draft Only
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => handleSaveDraftEdit(true)}
+            >
+              <i className="fa-solid fa-play"></i> Save & Resume Voice
+            </button>
+          </>
+        }
+      >
+        <div style={{ marginBottom: "1rem", fontSize: "0.85rem", color: "var(--brand-muted)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <i className="fa-solid fa-circle-pause" style={{ color: "#eab308", fontSize: "1rem" }}></i>
+          <span>Voice recording is paused. Edit values below, click quick pills, and resume when ready.</span>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveDraftEdit(true);
+          }}
+          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+        >
+          {fields.map((f) => {
+            const isGroup = f.key?.toLowerCase().includes("group") || f.label?.toLowerCase().includes("group");
+            const isSession = f.key?.toLowerCase().includes("session") || f.label?.toLowerCase().includes("session");
+            const isFocusedTarget = draftEditFocusKey === f.key;
+            return (
+              <div
+                key={f.id}
+                className="form-group"
+                style={{
+                  padding: isFocusedTarget ? "0.6rem" : "0",
+                  borderRadius: isFocusedTarget ? "var(--radius-sm)" : "0",
+                  background: isFocusedTarget ? "var(--brand-accent)" : "transparent",
+                  border: isFocusedTarget ? "1px solid var(--brand-secondary)" : "none"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.4rem" }}>
+                  <label className="label" style={{ fontWeight: isFocusedTarget ? 800 : 600 }}>
+                    {f.label} {f.autoSkip && <span className="badge badge-neutral" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }}>Auto-skip</span>}
+                  </label>
+                  <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+                    {isGroup && (
+                      ["Group A", "Group B", "Group C"].map((grp) => (
+                        <button
+                          key={grp}
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            padding: "0.15rem 0.45rem",
+                            fontSize: "0.725rem",
+                            background: draftEditForm[f.key] === grp ? "var(--brand-accent)" : "#ffffff",
+                            borderColor: draftEditForm[f.key] === grp ? "var(--brand-primary)" : "var(--brand-border)"
+                          }}
+                          onClick={() => setDraftEditForm((prev) => ({ ...prev, [f.key]: grp }))}
+                        >
+                          {grp}
+                        </button>
+                      ))
+                    )}
+                    {isSession && (
+                      ["Morning Session", "Evening Session", "Afternoon Session", "Weekend Session"].map((sess) => (
+                        <button
+                          key={sess}
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          style={{
+                            padding: "0.15rem 0.45rem",
+                            fontSize: "0.725rem",
+                            background: draftEditForm[f.key] === sess ? "var(--brand-accent)" : "#ffffff",
+                            borderColor: draftEditForm[f.key] === sess ? "var(--brand-primary)" : "var(--brand-border)"
+                          }}
+                          onClick={() => setDraftEditForm((prev) => ({ ...prev, [f.key]: sess }))}
+                        >
+                          {sess.replace(" Session", "")}
+                        </button>
+                      ))
+                    )}
+                    {f.hasDefault && f.defaultValue && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        style={{ padding: "0.15rem 0.45rem", fontSize: "0.725rem", color: "var(--brand-primary)" }}
+                        onClick={() => setDraftEditForm((prev) => ({ ...prev, [f.key]: f.defaultValue }))}
+                        title={`Fill default: "${f.defaultValue}"`}
+                      >
+                        Default
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <input
+                  type={f.type === "number" ? "number" : "text"}
+                  className={`input ${f.type === "id" || f.type === "number" ? "input-mono" : ""}`}
+                  value={draftEditForm[f.key] || ""}
+                  onChange={(e) =>
+                    setDraftEditForm((prev) => ({
+                      ...prev,
+                      [f.key]: e.target.value
+                    }))
+                  }
+                  autoFocus={isFocusedTarget}
                   placeholder={`Enter ${f.label}`}
                 />
               </div>
