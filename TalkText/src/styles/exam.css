@@ -149,7 +149,56 @@
 .stream-slot-rect.locked {
   background: #f8fafc;
   border-style: dashed;
-  border-color: #cbd5e1;
+  border-color: #94a3b8;
+  opacity: 0.9;
+}
+
+.stream-slot-rect.locked:hover {
+  background: #f1f5f9;
+  border-color: var(--brand-primary);
+  opacity: 1;
+}
+
+/* Slots Divider between active inputs and batch defaults */
+.stream-slots-divider {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-primary);
+  background: var(--brand-accent);
+  border: 1px dashed rgba(29, 61, 143, 0.25);
+  border-radius: 6px;
+  margin: 0 0.15rem;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Animation when a slot card is locked or unlocked and moved */
+@keyframes slotMoveToEnd {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.88) translateX(-20px);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.06) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+.stream-slot-rect.slot-animating {
+  animation: slotMoveToEnd 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(29, 61, 143, 0.25);
 }
 
 .slot-rect-idx {
@@ -214,6 +263,66 @@
 .stream-slot-rect:hover .slot-edit-prompt-btn {
   opacity: 1;
   color: var(--brand-secondary);
+}
+
+/* Manage Fields List in Modal */
+.manage-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 380px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.manage-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-md);
+  gap: 0.75rem;
+  transition: all var(--transition-fast);
+}
+
+.manage-field-row:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.manage-field-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.manage-field-label {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--brand-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.manage-field-meta {
+  font-size: 0.725rem;
+  color: var(--brand-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.manage-field-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 
 .exam-table-card {

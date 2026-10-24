@@ -31,10 +31,17 @@ function createStudentRecord(finalDraft) {
   };
 }
 
+function reorderFieldsWithLocks(fieldList) {
+  if (!Array.isArray(fieldList)) return [];
+  const unlocked = fieldList.filter((f) => !f.autoSkip);
+  const locked = fieldList.filter((f) => f.autoSkip);
+  return [...unlocked, ...locked];
+}
+
 export default function ExamRecorderPage() {
   const toast = useToast();
 
-  const [fields, setFields] = useState(() => storage.getExamFields());
+  const [fields, setFields] = useState(() => reorderFieldsWithLocks(storage.getExamFields()));
   const [records, setRecords] = useState(() => storage.getExamRecords());
   const [settings] = useState(() => storage.getExamSettings());
 
@@ -48,6 +55,13 @@ export default function ExamRecorderPage() {
   const [fieldModalOpen, setFieldModalOpen] = useState(false);
   const [clearModalOpen, setClearModalOpen] = useState(false);
   const [editingField, setEditingField] = useState(null);
+
+  const [lockConfirmModalOpen, setLockConfirmModalOpen] = useState(false);
+  const [lockConfirmField, setLockConfirmField] = useState(null);
+  const [lockDefaultValue, setLockDefaultValue] = useState("");
+  const [justMovedFieldId, setJustMovedFieldId] = useState(null);
+
+  const [manageFieldsModalOpen, setManageFieldsModalOpen] = useState(false);
 
   const [editRecordModalOpen, setEditRecordModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -497,34 +511,82 @@ export default function ExamRecorderPage() {
     }
   };
 
-  const toggleFieldAutoSkip = (fieldId) => {
+  const handleOpenLockConfirm = (field) => {
+    setLockConfirmField(field);
+    setLockDefaultValue(field.defaultValue || currentDraft[field.key] || "");
+    setLockConfirmModalOpen(true);
+  };
+
+  const handleConfirmLock = (fieldId, confirmedVal) => {
+    const val = (confirmedVal || "").trim();
+    if (!val) {
+      toast.error("Please enter or select a default value before locking.");
+      return;
+    }
+
     const updated = fields.map((f) => {
       if (f.id === fieldId) {
-        return { ...f, autoSkip: !f.autoSkip };
+        return {
+          ...f,
+          hasDefault: true,
+          defaultValue: val,
+          autoSkip: true
+        };
       }
       return f;
     });
-    setFields(updated);
-    fieldsRef.current = updated;
-    storage.saveExamFields(updated);
 
-    const updatedDraft = { ...currentDraftRef.current };
-    for (const f of updated) {
-      if (f.autoSkip && f.defaultValue) {
-        updatedDraft[f.key] = f.defaultValue;
-      } else if (!f.autoSkip && updatedDraft[f.key] === f.defaultValue) {
-        delete updatedDraft[f.key];
-      }
-    }
-    setCurrentDraft(updatedDraft);
-    currentDraftRef.current = updatedDraft;
+    const reordered = reorderFieldsWithLocks(updated);
+    setFields(reordered);
+    fieldsRef.current = reordered;
+    storage.saveExamFields(reordered);
 
     const targetField = updated.find((f) => f.id === fieldId);
-    if (targetField?.autoSkip) {
-      toast.success(`Locked ${targetField.label} to "${targetField.defaultValue}" for this batch.`);
-    } else {
-      toast.info(`Unlocked ${targetField?.label}. Will ask during voice input.`);
+    if (targetField) {
+      const updatedDraft = {
+        ...currentDraftRef.current,
+        [targetField.key]: val
+      };
+      setCurrentDraft(updatedDraft);
+      currentDraftRef.current = updatedDraft;
     }
+
+    setJustMovedFieldId(fieldId);
+    setTimeout(() => setJustMovedFieldId(null), 700);
+
+    setLockConfirmModalOpen(false);
+    toast.success(`Locked ${targetField?.label} to "${val}". Moved to batch defaults.`);
+  };
+
+  const handleUnlockField = (fieldId) => {
+    const updated = fields.map((f) => {
+      if (f.id === fieldId) {
+        return {
+          ...f,
+          autoSkip: false
+        };
+      }
+      return f;
+    });
+
+    const reordered = reorderFieldsWithLocks(updated);
+    setFields(reordered);
+    fieldsRef.current = reordered;
+    storage.saveExamFields(reordered);
+
+    const targetField = updated.find((f) => f.id === fieldId);
+    if (targetField && currentDraftRef.current[targetField.key] === targetField.defaultValue) {
+      const updatedDraft = { ...currentDraftRef.current };
+      delete updatedDraft[targetField.key];
+      setCurrentDraft(updatedDraft);
+      currentDraftRef.current = updatedDraft;
+    }
+
+    setJustMovedFieldId(fieldId);
+    setTimeout(() => setJustMovedFieldId(null), 700);
+
+    setLockConfirmModalOpen(false);
+    toast.info(`Unlocked ${targetField?.label}. Moved to active inputs.`);
   };
 
   const startSession = () => {
@@ -577,7 +639,9 @@ export default function ExamRecorderPage() {
           fieldModalOpen ||
           clearModalOpen ||
           editRecordModalOpen ||
-          draftEditModalOpen
+          draftEditModalOpen ||
+          lockConfirmModalOpen ||
+          manageFieldsModalOpen
         ) {
           return;
         }
@@ -597,7 +661,7 @@ export default function ExamRecorderPage() {
     return () => {
       window.removeEventListener("keydown", handleGlobalKeyDown);
     };
-  }, [fieldModalOpen, clearModalOpen, editRecordModalOpen, draftEditModalOpen]);
+  }, [fieldModalOpen, clearModalOpen, editRecordModalOpen, draftEditModalOpen, lockConfirmModalOpen, manageFieldsModalOpen]);
 
   useEffect(() => {
     return () => {
@@ -668,8 +732,10 @@ export default function ExamRecorderPage() {
       toast.success("New field added.");
     }
 
-    setFields(updated);
-    storage.saveExamFields(updated);
+    const reordered = reorderFieldsWithLocks(updated);
+    setFields(reordered);
+    fieldsRef.current = reordered;
+    storage.saveExamFields(reordered);
     setFieldModalOpen(false);
   };
 
@@ -678,15 +744,34 @@ export default function ExamRecorderPage() {
       toast.error("You must have at least one field.");
       return;
     }
+    const target = fields.find((f) => f.id === id);
     const updated = fields.filter((f) => f.id !== id);
-    setFields(updated);
-    storage.saveExamFields(updated);
-    toast.info("Field removed.");
+    const reordered = reorderFieldsWithLocks(updated);
+    setFields(reordered);
+    fieldsRef.current = reordered;
+    storage.saveExamFields(reordered);
+
+    const updatedDraft = { ...currentDraftRef.current };
+    if (target) {
+      delete updatedDraft[target.key];
+      setCurrentDraft(updatedDraft);
+      currentDraftRef.current = updatedDraft;
+    }
+
+    if (currentFieldIdxRef.current >= reordered.length) {
+      const newIdx = Math.max(0, reordered.length - 1);
+      setCurrentFieldIdx(newIdx);
+      currentFieldIdxRef.current = newIdx;
+    }
+
+    toast.info(`Field "${target?.label || "Field"}" removed.`);
   };
 
   const handleResetFields = () => {
     const reset = storage.resetExamFields();
-    setFields(reset);
+    const reordered = reorderFieldsWithLocks(reset);
+    setFields(reordered);
+    fieldsRef.current = reordered;
     toast.info("Fields reset to defaults.");
   };
 
@@ -846,11 +931,20 @@ export default function ExamRecorderPage() {
 
           <button
             className="btn btn-outline btn-sm"
+            onClick={() => setManageFieldsModalOpen(true)}
+            title="Manage, reorder or remove exam fields"
+          >
+            <i className="fa-solid fa-sliders"></i>
+            <span className="btn-label-desktop">Fields ({fields.length})</span>
+          </button>
+
+          <button
+            className="btn btn-outline btn-sm"
             onClick={handleOpenAddField}
             title="Add custom exam field"
           >
             <i className="fa-solid fa-plus"></i>
-            <span className="btn-label-desktop">Field</span>
+            <span className="btn-label-desktop">Add</span>
           </button>
 
           <button
@@ -880,44 +974,51 @@ export default function ExamRecorderPage() {
           const isCurrent = isRunning && i === currentFieldIdx;
           const isFilled = currentDraft[f.key] !== undefined && currentDraft[f.key] !== "";
           const val = isFilled ? currentDraft[f.key] : f.defaultValue || "—";
+          const isJustMoved = justMovedFieldId === f.id;
+          const isFirstLocked = f.autoSkip && (i === 0 || !fields[i - 1]?.autoSkip);
 
           return (
-            <div
-              key={f.id}
-              className={`stream-slot-rect ${isCurrent ? "active animate-pulse-glow" : ""} ${isFilled ? "filled" : ""} ${f.autoSkip ? "locked" : ""}`}
-              onClick={() => handleSlotCardClick(f)}
-              title={`Slot #${i + 1}: ${f.label} — click to edit draft`}
-            >
-              <span className="slot-rect-idx">#{i + 1}</span>
-              <span className="slot-rect-label">{f.label}:</span>
-              <span className="slot-rect-val">{val}</span>
+            <React.Fragment key={f.id}>
+              {isFirstLocked && (
+                <div className="stream-slots-divider" title="Locked Batch Defaults">
+                  <i className="fa-solid fa-lock"></i>
+                  <span>Batch Defaults</span>
+                </div>
+              )}
+              <div
+                className={`stream-slot-rect ${isCurrent ? "active animate-pulse-glow" : ""} ${isFilled ? "filled" : ""} ${f.autoSkip ? "locked" : ""} ${isJustMoved ? "slot-animating" : ""}`}
+                onClick={() => handleSlotCardClick(f)}
+                title={`Slot #${i + 1}: ${f.label} (${f.autoSkip ? "Locked Default" : "Active Input"}) — click to edit current value`}
+              >
+                <span className="slot-rect-idx">#{i + 1}</span>
+                <span className="slot-rect-label">{f.label}:</span>
+                <span className="slot-rect-val">{val}</span>
 
-              {f.hasDefault && (
                 <button
                   type="button"
                   className={`slot-lock-toggle ${f.autoSkip ? "locked" : ""}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleFieldAutoSkip(f.id);
+                    handleOpenLockConfirm(f);
                   }}
-                  title={f.autoSkip ? `Locked default "${f.defaultValue}". Click to unlock.` : `Click to lock default "${f.defaultValue}"`}
+                  title={f.autoSkip ? `Locked default "${f.defaultValue}". Click to change default or unlock.` : `Click to confirm default & lock for this batch`}
                 >
                   <i className={`fa-solid ${f.autoSkip ? "fa-lock" : "fa-lock-open"}`}></i>
                 </button>
-              )}
 
-              <button
-                type="button"
-                className="slot-edit-prompt-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenEditField(f);
-                }}
-                title={`Configure prompt for ${f.label}`}
-              >
-                <i className="fa-solid fa-pen"></i>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className="slot-edit-prompt-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSlotCardClick(f);
+                  }}
+                  title={`Edit current value for ${f.label}`}
+                >
+                  <i className="fa-solid fa-pen"></i>
+                </button>
+              </div>
+            </React.Fragment>
           );
         })}
       </div>
@@ -1031,14 +1132,33 @@ export default function ExamRecorderPage() {
         onClose={() => setFieldModalOpen(false)}
         title={editingField ? "Edit Exam Field Prompt" : "Add Custom Exam Field"}
         footer={
-          <>
-            <button className="btn btn-outline btn-sm" onClick={() => setFieldModalOpen(false)}>
-              Cancel
-            </button>
-            <button className="btn btn-primary btn-sm" onClick={handleSaveFieldForm}>
-              {editingField ? "Update Field" : "Create Field"}
-            </button>
-          </>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+            {editingField ? (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ color: "var(--brand-danger)", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                onClick={() => {
+                  handleDeleteField(editingField.id);
+                  setFieldModalOpen(false);
+                }}
+                disabled={fields.length <= 1}
+                title={fields.length <= 1 ? "Cannot delete the only field" : "Remove this field from exam recorder"}
+              >
+                <i className="fa-solid fa-trash-can"></i> Delete Field
+              </button>
+            ) : (
+              <div></div>
+            )}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setFieldModalOpen(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary btn-sm" onClick={handleSaveFieldForm}>
+                {editingField ? "Update Field" : "Create Field"}
+              </button>
+            </div>
+          </div>
         }
       >
         <form onSubmit={handleSaveFieldForm} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -1144,6 +1264,228 @@ export default function ExamRecorderPage() {
             )}
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Confirm Default & Lock Field */}
+      <Modal
+        isOpen={lockConfirmModalOpen}
+        onClose={() => setLockConfirmModalOpen(false)}
+        title={lockConfirmField?.autoSkip ? `Batch Default: ${lockConfirmField?.label}` : `Lock Default: ${lockConfirmField?.label}`}
+        footer={
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+            {lockConfirmField?.autoSkip ? (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ color: "var(--brand-danger)", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                onClick={() => handleUnlockField(lockConfirmField.id)}
+                title="Unlock and move back to active inputs"
+              >
+                <i className="fa-solid fa-lock-open"></i> Unlock Field
+              </button>
+            ) : (
+              <div></div>
+            )}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setLockConfirmModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => handleConfirmLock(lockConfirmField.id, lockDefaultValue)}
+              >
+                <i className={`fa-solid ${lockConfirmField?.autoSkip ? "fa-check" : "fa-lock"}`}></i>
+                <span>{lockConfirmField?.autoSkip ? "Save Default" : "Confirm & Lock"}</span>
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--brand-muted)", margin: 0, lineHeight: 1.5 }}>
+            {lockConfirmField?.autoSkip ? (
+              <span>This field is currently locked to default value <strong>"{lockConfirmField?.defaultValue}"</strong> and auto-applied at the end of each record.</span>
+            ) : (
+              <span>Confirm or edit the default value for <strong>{lockConfirmField?.label}</strong>. When locked, this card will move to the end of the stream row so that only changing fields remain in front.</span>
+            )}
+          </p>
+
+          <div className="form-group">
+            <label className="label">Default Value for {lockConfirmField?.label}</label>
+            <input
+              type="text"
+              className="input"
+              value={lockDefaultValue}
+              onChange={(e) => setLockDefaultValue(e.target.value)}
+              placeholder={`Enter default value for ${lockConfirmField?.label}`}
+              autoFocus
+            />
+          </div>
+
+          {/* Quick Preset Buttons for common fields */}
+          {(lockConfirmField?.key?.toLowerCase().includes("session") || lockConfirmField?.label?.toLowerCase().includes("session")) && (
+            <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+              {["Morning Session", "Evening Session", "Afternoon Session", "Weekend Session"].map((ses) => (
+                <button
+                  key={ses}
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  style={{
+                    fontSize: "0.75rem",
+                    padding: "0.25rem 0.6rem",
+                    background: lockDefaultValue === ses ? "var(--brand-accent)" : "#ffffff",
+                    borderColor: lockDefaultValue === ses ? "var(--brand-primary)" : "var(--brand-border)"
+                  }}
+                  onClick={() => setLockDefaultValue(ses)}
+                >
+                  {ses}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(lockConfirmField?.key?.toLowerCase().includes("class") || lockConfirmField?.label?.toLowerCase().includes("class")) && (
+            <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+              {["Class A", "Class B", "Class C"].map((cls) => (
+                <button
+                  key={cls}
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  style={{
+                    fontSize: "0.75rem",
+                    padding: "0.25rem 0.6rem",
+                    background: lockDefaultValue === cls ? "var(--brand-accent)" : "#ffffff",
+                    borderColor: lockDefaultValue === cls ? "var(--brand-primary)" : "var(--brand-border)"
+                  }}
+                  onClick={() => setLockDefaultValue(cls)}
+                >
+                  {cls}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(lockConfirmField?.key?.toLowerCase().includes("group") || lockConfirmField?.label?.toLowerCase().includes("group")) && (
+            <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+              {["Group A", "Group B", "Group C"].map((grp) => (
+                <button
+                  key={grp}
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  style={{
+                    fontSize: "0.75rem",
+                    padding: "0.25rem 0.6rem",
+                    background: lockDefaultValue === grp ? "var(--brand-accent)" : "#ffffff",
+                    borderColor: lockDefaultValue === grp ? "var(--brand-primary)" : "var(--brand-border)"
+                  }}
+                  onClick={() => setLockDefaultValue(grp)}
+                >
+                  {grp}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal: Manage & Remove Fields */}
+      <Modal
+        isOpen={manageFieldsModalOpen}
+        onClose={() => setManageFieldsModalOpen(false)}
+        title={`Manage Exam Fields (${fields.length})`}
+        footer={
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={handleResetFields}
+              title="Reset fields to original defaults"
+            >
+              Reset to Defaults
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setManageFieldsModalOpen(false)}
+            >
+              Done
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.85rem", color: "var(--brand-muted)" }}>
+              Add, configure or remove recorded fields:
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                setManageFieldsModalOpen(false);
+                handleOpenAddField();
+              }}
+            >
+              <i className="fa-solid fa-plus"></i> Add Field
+            </button>
+          </div>
+
+          <div className="manage-fields-list">
+            {fields.map((f, i) => (
+              <div key={f.id} className="manage-field-row">
+                <div className="manage-field-info">
+                  <span className="slot-rect-idx">#{i + 1}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="manage-field-label">{f.label}</div>
+                    <div className="manage-field-meta">
+                      <span className="badge badge-neutral" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }}>
+                        {f.type}
+                      </span>
+                      {f.autoSkip ? (
+                        <span className="badge badge-brand" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }}>
+                          <i className="fa-solid fa-lock"></i> Locked: {f.defaultValue}
+                        </span>
+                      ) : f.hasDefault ? (
+                        <span style={{ color: "var(--brand-muted)" }}>Default: {f.defaultValue}</span>
+                      ) : (
+                        <span style={{ color: "var(--brand-muted)" }}>No default</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="manage-field-actions">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => {
+                      setManageFieldsModalOpen(false);
+                      handleOpenEditField(f);
+                    }}
+                    title={`Edit ${f.label} prompt & settings`}
+                  >
+                    <i className="fa-solid fa-gear"></i>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => handleDeleteField(f.id)}
+                    disabled={fields.length <= 1}
+                    style={{ color: fields.length <= 1 ? "var(--brand-muted)" : "var(--brand-danger)" }}
+                    title={fields.length <= 1 ? "Cannot delete the only field" : `Remove ${f.label} field`}
+                  >
+                    <i className="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </Modal>
 
       {/* Modal: Clear Records Confirm */}
